@@ -5,10 +5,19 @@ const getUserInfo = require("../lib/getUserInfo");
 const Token = require("../schema/token");
 
 const UserSchema = new Mongoose.Schema({
-  id: { type: Object },
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },
+  empresaId: {
+    type: Mongoose.Schema.Types.ObjectId,
+    ref: "Empresa",
+    required: true,
+  },
+  rolId: {
+    type: Mongoose.Schema.Types.ObjectId,
+    ref: "Rol",
+    required: true,
+  },
 });
 
 UserSchema.pre("save", function (next) {

@@ -1,49 +1,75 @@
 const express = require("express");
-const User = require("../schema/user");
 const { jsonResponse } = require("../lib/jsonResponse");
 const router = express.Router();
 
-router.post("/", async function (req, res, next) {
-  const { username, password, name } = req.body;
+// Importar los nuevos modelos
+const Empresa = require("../schema/empresa");
+const Rol = require("../schema/rol");
+const User = require("../schema/user");
 
-  if (!username || !password || !name) {
-    //return next(new Error("username and password are required"));
-    return res.status(409).json(
-      jsonResponse(409, {
-        error: "username and password are required",
+router.post("/", async function (req, res, next) {
+  const { username, password, name, empresaName, nit } = req.body;
+
+  if (!username || !password || !name || !empresaName || !nit) {
+    return res.status(400).json(
+      jsonResponse(400, {
+        error: "Todos los campos son requeridos",
       })
     );
   }
 
   try {
-    const user = new User();
-    const userExists = await user.usernameExists(username);
-
+    // 1. Verificar si el usuario o la empresa ya existen
+    const userExists = await User.exists({ username });
     if (userExists) {
-      return res.status(409).json(
-        jsonResponse(409, {
-          error: "username already exists",
-        })
-      );
-      //return next(new Error("user already exists"));
-    } else {
-      const user = new User({ username, password, name });
-
-      user.save();
-
-      res.json(
-        jsonResponse(200, {
-          message: "User created successfully",
-        })
-      );
+      return res.status(409).json(jsonResponse(409, { error: "El nombre de usuario ya existe" }));
     }
-  } catch (err) {
-    return res.status(500).json(
-      jsonResponse(500, {
-        error: "Error creating user",
+
+    const empresaExists = await Empresa.exists({ nit });
+    if (empresaExists) {
+      return res.status(409).json(jsonResponse(409, { error: "El NIT de la empresa ya está registrado" }));
+    }
+
+    // --- Inicio de la "transacción" ---
+
+    // 2. Crear la nueva empresa
+    const newEmpresa = new Empresa({ name: empresaName, nit });
+    await newEmpresa.save();
+
+    // 3. Crear el rol de Administrador para esa empresa
+    const adminRol = new Rol({
+      name: "Administrador",
+      empresaId: newEmpresa._id,
+      permissions: { isAdmin: true }, // Permisos de ejemplo
+    });
+    await adminRol.save();
+
+    // 4. Crear el nuevo usuario y vincularlo
+    const newUser = new User({
+      username,
+      password, // El pre-save hook se encargará de hashear
+      name,
+      empresaId: newEmpresa._id,
+      rolId: adminRol._id,
+    });
+
+    await newUser.save();
+
+    // --- Fin de la "transacción" ---
+
+    res.json(
+      jsonResponse(200, {
+        message: "Empresa y usuario administrador creados exitosamente",
       })
     );
-    //return next(new Error(err.message));
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(
+      jsonResponse(500, {
+        error: "Error en el servidor al crear la cuenta",
+      })
+    );
   }
 });
 
