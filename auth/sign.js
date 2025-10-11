@@ -17,10 +17,10 @@ function sign(payload, isAccessToken) {
 
 // Función para generar un token de acceso utilizando jsonwebtoken
 function generateAccessToken(user) {
-  return sign({ user }, true);
+  return sign(user, true);
 }
 function generateRefreshToken(user) {
-  return sign({ user }, false);
+  return sign(user, false);
 }
 
 module.exports = { generateAccessToken, generateRefreshToken };

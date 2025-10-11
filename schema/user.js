@@ -20,18 +20,15 @@ const UserSchema = new Mongoose.Schema({
   },
 });
 
-UserSchema.pre("save", function (next) {
+UserSchema.pre("save", async function (next) {
   if (this.isModified("password") || this.isNew) {
-    const document = this;
-
-    bcrypt.hash(document.password, 10, (err, hash) => {
-      if (err) {
-        next(err);
-      } else {
-        document.password = hash;
-        next();
-      }
-    });
+    try {
+      const hash = await bcrypt.hash(this.password, 10);
+      this.password = hash;
+      next();
+    } catch (error) {
+      next(error);
+    }
   } else {
     next();
   }
