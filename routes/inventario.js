@@ -10,7 +10,8 @@ router.post("/", async (req, res) => {
   try {
     const newUnidad = new UnidadConservacion({ 
       ...req.body, 
-      empresaId: req.user.empresaId 
+      empresa: req.user.empresaId,
+      creadoPor: req.user.id // Add creator tracking
     });
     await newUnidad.save();
     res.json(jsonResponse(200, { data: newUnidad }));
@@ -29,7 +30,7 @@ router.post("/", async (req, res) => {
 // READ (all for the company)
 router.get("/", async (req, res) => {
   try {
-    const unidades = await UnidadConservacion.find({ empresaId: req.user.empresaId });
+    const unidades = await UnidadConservacion.find({ empresa: req.user.empresaId });
     res.json(jsonResponse(200, { data: unidades }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error en el servidor" }));
@@ -40,7 +41,7 @@ router.get("/", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   try {
     const updatedUnidad = await UnidadConservacion.findOneAndUpdate(
-      { _id: req.params.id, empresaId: req.user.empresaId },
+      { _id: req.params.id, empresa: req.user.empresaId },
       req.body,
       { new: true }
     );
@@ -58,7 +59,7 @@ router.delete("/:id", async (req, res) => {
   try {
     const deletedUnidad = await UnidadConservacion.findOneAndDelete({ 
       _id: req.params.id, 
-      empresaId: req.user.empresaId 
+      empresa: req.user.empresaId 
     });
     if (!deletedUnidad) {
       return res.status(404).json(jsonResponse(404, { error: "Unidad no encontrada" }));

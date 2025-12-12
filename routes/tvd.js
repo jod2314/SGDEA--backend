@@ -6,12 +6,9 @@ const Tvd = require("../schema/tvd");
 // Obtener la TVD de la empresa actual
 router.get("/", async (req, res) => {
   try {
-    const tvd = await Tvd.findOne({ empresaId: req.user.empresaId });
+    const tvd = await Tvd.findOne({ empresa: req.user.empresaId });
     if (!tvd) {
-      // Si no existe, se puede crear una vacía
-      const newTvd = new Tvd({ empresaId: req.user.empresaId, filas: [] });
-      await newTvd.save();
-      return res.json(jsonResponse(200, { data: newTvd }));
+      return res.json(jsonResponse(200, { data: { items: [] } }));
     }
     res.json(jsonResponse(200, { data: tvd }));
   } catch (error) {
@@ -19,19 +16,31 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Actualizar la TVD (en este caso, reemplazando las filas)
+// Actualizar la TVD
 router.patch("/", async (req, res) => {
-  const { filas } = req.body;
+  const { items } = req.body;
 
   try {
-    const tvd = await Tvd.findOneAndUpdate(
-      { empresaId: req.user.empresaId },
-      { filas },
-      { new: true, upsert: true, runValidators: true }
-    );
+    let tvd = await Tvd.findOne({ empresa: req.user.empresaId });
+
+    if (tvd) {
+      // Actualizar existente
+      tvd.items = items;
+      await tvd.save();
+    } else {
+      // Crear nueva
+      tvd = new Tvd({
+        empresa: req.user.empresaId,
+        creadoPor: req.user.id,
+        items: items
+      });
+      await tvd.save();
+    }
+    
     res.json(jsonResponse(200, { data: tvd }));
   } catch (error) {
-    res.status(500).json(jsonResponse(500, { error: "Error al actualizar la TVD" }));
+    console.error(error);
+    res.status(500).json(jsonResponse(500, { error: "Error al actualizar la TVD: " + error.message }));
   }
 });
 
