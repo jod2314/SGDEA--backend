@@ -25,7 +25,12 @@ router.patch("/", async (req, res) => {
     organigramas,
     infraestructura,
     resumenCCDPropuesto,
-    observaciones
+    observaciones,
+    // Nuevos campos cuantitativos
+    conteo,
+    metrosLineales,
+    insumosProyectados,
+    estadoBiologico
   } = req.body;
 
   try {
@@ -40,6 +45,11 @@ router.patch("/", async (req, res) => {
           infraestructura,
           resumenCCDPropuesto,
           observaciones,
+          // Guardar métricas
+          conteo,
+          metrosLineales,
+          insumosProyectados,
+          estadoBiologico,
           empresa: req.user.empresaId,
         },
         $setOnInsert: {

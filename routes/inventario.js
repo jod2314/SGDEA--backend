@@ -2,11 +2,13 @@ const express = require("express");
 const router = express.Router();
 const { jsonResponse } = require("../lib/jsonResponse");
 const UnidadConservacion = require("../schema/unidadConservacion");
+const validate = require("../middleware/validate");
+const { inventarioSchema } = require("../validators/schemas");
 
 // --- CRUD para Unidades de Conservación (Inventario) ---
 
 // CREATE
-router.post("/", async (req, res) => {
+router.post("/", validate(inventarioSchema), async (req, res) => {
   try {
     const newUnidad = new UnidadConservacion({ 
       ...req.body, 
