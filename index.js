@@ -61,6 +61,7 @@ app.use("/api/inventario", authenticateToken, require("./routes/inventario"));
 app.use("/api/tvd", authenticateToken, require("./routes/tvd"));
 app.use("/api/trd", authenticateToken, require("./routes/trd"));
 app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
+app.use("/api/expedientes", authenticateToken, require("./routes/expedientes"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port}`);
