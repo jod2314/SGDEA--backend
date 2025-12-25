@@ -9,6 +9,9 @@ const inventarioSchema = z.object({
   
   numeroOrden: z.number().int().positive().optional(),
   codigo: z.string().min(1, "El código es obligatorio para Archivo Central").optional(),
+  
+  dependencia: z.string().optional(), // ID de la dependencia productora
+  
   asunto: z.string().min(3, "El asunto debe tener al menos 3 caracteres"),
   
   fechaInicial: z.string().or(z.date()).optional(), // Se puede refinar a formato fecha
@@ -116,9 +119,35 @@ const trdSchema = z.object({
   })).min(1, "La TRD debe tener al menos un item")
 });
 
+// Nuevo: Esquema para Periodo Histórico
+const periodoHistoricoSchema = z.object({
+  nombre: z.string().min(3, "El nombre del periodo es requerido"),
+  fechaInicio: z.string().or(z.date()),
+  fechaFin: z.string().or(z.date()),
+  actoAdministrativo: z.string().optional(),
+  descripcion: z.string().optional(),
+  estado: z.enum(['Abierto', 'Cerrado']).default('Abierto')
+}).refine(data => new Date(data.fechaInicio) < new Date(data.fechaFin), {
+  message: "La fecha final debe ser posterior a la fecha de inicio",
+  path: ["fechaFin"],
+});
+
+// Nuevo: Esquema para Estructura Orgánica (Dependencia)
+const estructuraOrganicaSchema = z.object({
+  periodoHistorico: z.string().min(1, "El periodo histórico es requerido"),
+  codigo: z.string().min(1, "El código de la dependencia es requerido"),
+  nombre: z.string().min(2, "El nombre de la dependencia es requerido"),
+  padre: z.string().nullable().optional(), // ID de la dependencia padre
+  nivelJerarquico: z.enum(['Direccion', 'Subdireccion', 'Division', 'Seccion', 'Grupo', 'Otro']).optional(),
+  activa: z.boolean().default(true)
+});
+
+
 module.exports = {
   inventarioSchema,
   documentoSchema,
   diagnosticoSchema,
-  trdSchema
+  trdSchema,
+  periodoHistoricoSchema,
+  estructuraOrganicaSchema
 };

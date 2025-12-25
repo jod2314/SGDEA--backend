@@ -7,6 +7,7 @@ const TVDSchema = new mongoose.Schema({
   version: { type: Number, default: 1 },
   items: [{
     unidadConservacion: { type: mongoose.Schema.Types.ObjectId, ref: 'UnidadConservacion' }, // opcional
+    dependencia: { type: mongoose.Schema.Types.ObjectId, ref: 'EstructuraOrganica' }, // Link to dependency
     serie: { type: String }, // serie/subserie/expediente
     fechaInicio: Date,
     fechaFin: Date,

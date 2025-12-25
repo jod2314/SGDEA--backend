@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { jsonResponse } = require("../lib/jsonResponse");
 const UnidadConservacion = require("../schema/unidadConservacion");
+const EstructuraOrganica = require("../schema/estructuraOrganica"); // Importar
 const validate = require("../middleware/validate");
 const { inventarioSchema } = require("../validators/schemas");
 
@@ -10,6 +11,25 @@ const { inventarioSchema } = require("../validators/schemas");
 // CREATE
 router.post("/", validate(inventarioSchema), async (req, res) => {
   try {
+    // --- VALIDACIÓN DE ANACRONISMO (Cross-Check) ---
+    if (req.body.dependencia && req.body.fechaInicial) {
+        const dep = await EstructuraOrganica.findById(req.body.dependencia).populate('periodoHistorico');
+        
+        if (dep && dep.periodoHistorico) {
+            const fechaDoc = new Date(req.body.fechaInicial);
+            const pInicio = new Date(dep.periodoHistorico.fechaInicio);
+            const pFin = new Date(dep.periodoHistorico.fechaFin);
+            
+            // Validar rango
+            if (fechaDoc < pInicio || fechaDoc > pFin) {
+                return res.status(400).json(jsonResponse(400, { 
+                    error: `ANACRONISMO: La dependencia '${dep.nombre}' solo existió entre ${pInicio.getFullYear()} y ${pFin.getFullYear()}. No puede contener documentos de ${fechaDoc.getFullYear()}.` 
+                }));
+            }
+        }
+    }
+    // -----------------------------------------------
+
     const newUnidad = new UnidadConservacion({ 
       ...req.body, 
       empresa: req.user.empresaId,

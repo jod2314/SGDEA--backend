@@ -7,6 +7,9 @@ const UnidadConservacionSchema = new mongoose.Schema({
   numeroOrden: { type: Number }, // 1, 2, 3...
   codigo: { type: String }, // Código de Serie/Subserie (Opcional en fondos acumulados)
   
+  // Productor (Procedencia)
+  dependencia: { type: mongoose.Schema.Types.ObjectId, ref: 'EstructuraOrganica', index: true },
+
   // Descripción
   nombreSerie: { type: String }, 
   nombreSubserie: { type: String },
