@@ -64,6 +64,7 @@ app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
 app.use("/api/expedientes", authenticateToken, require("./routes/expedientes"));
 app.use("/api/importar", authenticateToken, require("./routes/importar"));
 app.use("/api/exportar", authenticateToken, require("./routes/exportar"));
+app.use("/api/valuation", authenticateToken, require("./routes/valuation"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port}`);

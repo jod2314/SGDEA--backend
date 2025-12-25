@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { jsonResponse } = require("../lib/jsonResponse");
 const Diagnostico = require("../schema/diagnostico");
+const validate = require("../middleware/validate");
+const { diagnosticoSchema } = require("../validators/schemas");
 
 // Obtener el diagnóstico de la empresa actual
 router.get("/", async (req, res) => {
@@ -17,7 +19,7 @@ router.get("/", async (req, res) => {
 });
 
 // Crear o actualizar el diagnóstico (Upsert)
-router.patch("/", async (req, res) => {
+router.patch("/", validate(diagnosticoSchema), async (req, res) => {
   const { 
     historiaInstitucional, 
     estructuraAnterior, 

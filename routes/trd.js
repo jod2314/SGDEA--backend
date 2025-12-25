@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { jsonResponse } = require("../lib/jsonResponse");
 const TRD = require("../schema/trd");
+const validate = require("../middleware/validate");
+const { trdSchema } = require("../validators/schemas");
 
 // --- CRUD para Tablas de Retención Documental (TRD) ---
 
@@ -19,12 +21,8 @@ router.get("/", async (req, res) => {
 });
 
 // Crear una nueva TRD (y desactiva las anteriores si ya existe una activa)
-router.post("/", async (req, res) => {
+router.post("/", validate(trdSchema), async (req, res) => {
   const { nombre, items } = req.body;
-
-  if (!nombre || !items || !Array.isArray(items)) {
-    return res.status(400).json(jsonResponse(400, { error: "Nombre y items son requeridos para la TRD" }));
-  }
 
   try {
     // Desactivar cualquier TRD activa existente para esta empresa
@@ -48,7 +46,7 @@ router.post("/", async (req, res) => {
 });
 
 // Actualizar una TRD existente (asumiendo que solo se actualiza la TRD activa)
-router.patch("/", async (req, res) => {
+router.patch("/", validate(trdSchema), async (req, res) => {
   const { nombre, items } = req.body;
 
   try {

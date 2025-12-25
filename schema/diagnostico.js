@@ -41,4 +41,40 @@ const DiagnosticoSchema = new mongoose.Schema({
   version: { type: Number, default: 1 }
 });
 
+// Middleware pre-save para calcular métricas automáticamente
+DiagnosticoSchema.pre('save', function(next) {
+  // Factores de conversión estándar (Aproximados AGN)
+  // Caja X200 = 0.12 metros lineales (aprox)
+  // Carpeta llena = 0.015 - 0.02 metros lineales
+  // Tomo empastado = 0.03 - 0.05 metros lineales
+  
+  if (this.conteo) {
+    const mlCajas = (this.conteo.cajas || 0) * 0.12;
+    const mlCarpetas = (this.conteo.carpetas || 0) * 0.015;
+    const mlTomos = (this.conteo.tomos || 0) * 0.04;
+    
+    this.metrosLineales = parseFloat((mlCajas + mlCarpetas + mlTomos).toFixed(2));
+    
+    // Proyección de Insumos (Lógica simple para ejemplo)
+    // Si tengo carpetas sueltas, necesito cajas para ellas (aprox 6 carpetas por caja)
+    // Si tengo tomos, no necesitan cajas necesariamente.
+    // Esto es una estimación base.
+    
+    const carpetasSinCaja = this.conteo.carpetas || 0;
+    const cajasNecesariasParaCarpetas = Math.ceil(carpetasSinCaja / 6);
+    
+    // Total cajas X200 nuevas a comprar (asumiendo que las cajas actuales ya existen)
+    // Si es un diagnóstico de "lo que hay suelto", proyectamos insumos.
+    // Si es "lo que ya está en cajas", no necesitamos insumos.
+    // Asumiremos que el conteo de 'carpetas' son unidades sueltas por organizar.
+    
+    this.insumosProyectados = {
+      cajasX200: cajasNecesariasParaCarpetas,
+      carpetasYute: Math.ceil(carpetasSinCaja * 1.1), // 10% de desperdicio/reemplazo
+      ganchosLegajadores: Math.ceil(carpetasSinCaja * 1.1)
+    };
+  }
+  next();
+});
+
 module.exports = mongoose.model('Diagnostico', DiagnosticoSchema);

@@ -42,7 +42,83 @@ const documentoSchema = z.object({
   nombreTRDSerie: z.string().optional(),
 });
 
+// Esquema para Diagnóstico
+const diagnosticoSchema = z.object({
+  historiaInstitucional: z.string().optional(),
+  estructuraAnterior: z.string().optional(),
+  observaciones: z.string().optional(),
+  
+  fechasClave: z.array(z.object({
+    fecha: z.string().or(z.date()),
+    descripcion: z.string()
+  })).optional(),
+  
+  organigramas: z.array(z.object({
+    tipo: z.string(),
+    descripcion: z.string().optional(),
+    archivoUrl: z.string().optional()
+  })).optional(),
+  
+  infraestructura: z.object({
+    condicionFisica: z.string().optional(),
+    temperatura: z.string().optional(),
+    humedad: z.string().optional(),
+    observaciones: z.string().optional()
+  }).optional(),
+  
+  conteo: z.object({
+    cajas: z.number().nonnegative().default(0),
+    carpetas: z.number().nonnegative().default(0),
+    tomos: z.number().nonnegative().default(0),
+    otros: z.number().nonnegative().default(0)
+  }).optional(),
+  
+  metrosLineales: z.number().nonnegative().optional(),
+  
+  insumosProyectados: z.object({
+    cajasX200: z.number().nonnegative().optional(),
+    carpetasYute: z.number().nonnegative().optional(),
+    ganchosLegajadores: z.number().nonnegative().optional()
+  }).optional(),
+  
+  estadoBiologico: z.object({
+    porcentajeHongos: z.number().min(0).max(100).optional(),
+    porcentajeInsectos: z.number().min(0).max(100).optional(),
+    porcentajePolvo: z.number().min(0).max(100).optional()
+  }).optional(),
+  
+  resumenCCDPropuesto: z.array(z.object({
+    nivel: z.number().optional(),
+    codigo: z.string().optional(),
+    descripcion: z.string().optional()
+  })).optional(),
+});
+
+// Esquema para TRD (Tabla de Retención Documental)
+const trdSchema = z.object({
+  nombre: z.string().min(3, "El nombre de la TRD es requerido"),
+  items: z.array(z.object({
+    codigoSerie: z.string().min(1, "El código de serie es requerido"),
+    nombreSerie: z.string().min(1, "El nombre de serie es requerido"),
+    
+    codigoSubserie: z.string().optional(),
+    nombreSubserie: z.string().optional(),
+    
+    retencionArchivoGestion: z.number().int().nonnegative("La retención debe ser positiva"),
+    retencionArchivoCentral: z.number().int().nonnegative("La retención debe ser positiva"),
+    
+    disposicionFinal: z.enum(['CT', 'E', 'M', 'S'], {
+      errorMap: () => ({ message: "La disposición final debe ser CT, E, M o S" })
+    }),
+    
+    procedimiento: z.string().optional(),
+    observaciones: z.string().optional()
+  })).min(1, "La TRD debe tener al menos un item")
+});
+
 module.exports = {
   inventarioSchema,
-  documentoSchema
+  documentoSchema,
+  diagnosticoSchema,
+  trdSchema
 };
