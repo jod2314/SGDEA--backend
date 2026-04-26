@@ -56,17 +56,6 @@ app.use("/api/posts", authenticateToken, require("./routes/posts"));
 }); */
 
 app.use("/api/user", authenticateToken, require("./routes/user"));
-app.use("/api/diagnostico", authenticateToken, require("./routes/diagnostico"));
-app.use("/api/inventario", authenticateToken, require("./routes/inventario"));
-app.use("/api/tvd", authenticateToken, require("./routes/tvd"));
-app.use("/api/trd", authenticateToken, require("./routes/trd"));
-app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
-app.use("/api/expedientes", authenticateToken, require("./routes/expedientes"));
-app.use("/api/importar", authenticateToken, require("./routes/importar"));
-app.use("/api/exportar", authenticateToken, require("./routes/exportar"));
-app.use("/api/valuation", authenticateToken, require("./routes/valuation"));
-app.use("/api/historico", authenticateToken, require("./routes/historico"));
-app.use("/api/estructura", authenticateToken, require("./routes/estructura"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port}`);
