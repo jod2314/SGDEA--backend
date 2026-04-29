@@ -57,6 +57,9 @@ app.use("/api/posts", authenticateToken, require("./routes/posts"));
 
 app.use("/api/user", authenticateToken, require("./routes/user"));
 app.use("/api/empresas", authenticateToken, require("./routes/empresas"));
+app.use("/api/plantillas", authenticateToken, require("./routes/plantillas"));
+app.use("/api/entidades", authenticateToken, require("./routes/entidades"));
+app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port}`);

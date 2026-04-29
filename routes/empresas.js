@@ -125,11 +125,54 @@ router.put("/:id", async (req, res) => {
 // Listar todas las empresas a las que pertenece el usuario autenticado
 router.get("/mis-empresas", async (req, res) => {
   try {
-    const membresias = await UsuarioEmpresa.find({ usuarioId: req.user.id })
+    // 1. Buscar membresías actuales
+    let membresias = await UsuarioEmpresa.find({ usuarioId: req.user.id })
       .populate("empresaId")
       .populate("rolId");
 
-    const empresas = membresias.map((m) => ({
+    // 2. Verificar si existe el espacio personal
+    const tienePersonal = membresias.some(m => m.empresaId && m.empresaId.isPersonal);
+
+    if (!tienePersonal) {
+      // LOGICA DE EMERGENCIA: Crear espacio personal si no existe
+      const User = require("../schema/user");
+      const user = await User.findById(req.user.id);
+      
+      if (user) {
+        // a. Crear empresa personal
+        const personalSpace = new Empresa({ 
+          name: `Espacio Personal de ${user.name}`, 
+          nit: user.identification, 
+          isPersonal: true 
+        });
+        await personalSpace.save();
+
+        // b. Crear rol admin
+        const adminRol = new Rol({
+          name: "Administrador Personal",
+          empresaId: personalSpace._id,
+          permissions: { isAdmin: true, isPersonal: true },
+        });
+        await adminRol.save();
+
+        // c. Vincular
+        const nuevaVinculacion = new UsuarioEmpresa({
+          usuarioId: user._id,
+          empresaId: personalSpace._id,
+          rolId: adminRol._id,
+        });
+        await nuevaVinculacion.save();
+
+        // d. Recargar membresías para incluirlas en la respuesta
+        membresias = await UsuarioEmpresa.find({ usuarioId: req.user.id })
+          .populate("empresaId")
+          .populate("rolId");
+      }
+    }
+
+    const empresas = membresias
+      .filter(m => m.empresaId) // Evitar nulos si una empresa fue borrada
+      .map((m) => ({
       id: m.empresaId._id,
       name: m.empresaId.name,
       nit: m.empresaId.nit,
@@ -137,6 +180,7 @@ router.get("/mis-empresas", async (req, res) => {
       isPersonal: m.empresaId.isPersonal,
       rol: m.rolId.name,
       estado: m.estado,
+      direccion: m.empresaId.direccion
     }));
 
     res.json(jsonResponse(200, { empresas }));
