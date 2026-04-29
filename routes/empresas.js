@@ -122,6 +122,74 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+const User = require("../schema/user");
+
+// Endpoint para inicializar el entorno del usuario tras el login
+router.post("/inicializar", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Verificar si ya existe el espacio personal
+    let vinculacionPersonal = await UsuarioEmpresa.findOne({ 
+      usuarioId: userId 
+    }).populate({
+      path: 'empresaId',
+      match: { isPersonal: true }
+    });
+
+    // Si existe la vinculación pero no es personal (por el match), buscamos de nuevo con cuidado
+    if (!vinculacionPersonal || !vinculacionPersonal.empresaId) {
+      // Buscar todas y filtrar manualmente para ser 100% precisos
+      const todas = await UsuarioEmpresa.find({ usuarioId: userId }).populate("empresaId");
+      vinculacionPersonal = todas.find(v => v.empresaId && v.empresaId.isPersonal);
+    }
+
+    if (!vinculacionPersonal) {
+      // 2. CREACIÓN FORZOSA DE ESPACIO PERSONAL
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json(jsonResponse(404, { error: "Usuario no encontrado" }));
+
+      const personalSpace = new Empresa({ 
+        name: `Espacio Personal de ${user.name}`, 
+        nit: user.identification, 
+        isPersonal: true 
+      });
+      await personalSpace.save();
+
+      const adminRol = new Rol({
+        name: "Administrador Personal",
+        empresaId: personalSpace._id,
+        permissions: { isAdmin: true, isPersonal: true },
+      });
+      await adminRol.save();
+
+      vinculacionPersonal = new UsuarioEmpresa({
+        usuarioId: userId,
+        empresaId: personalSpace._id,
+        rolId: adminRol._id,
+      });
+      await vinculacionPersonal.save();
+      
+      // Recargar para tener el objeto completo
+      vinculacionPersonal = await UsuarioEmpresa.findById(vinculacionPersonal._id).populate("empresaId").populate("rolId");
+    }
+
+    res.json(jsonResponse(200, { 
+      message: "Entorno inicializado",
+      personalSpace: {
+        id: vinculacionPersonal.empresaId._id,
+        name: vinculacionPersonal.empresaId.name,
+        nit: vinculacionPersonal.empresaId.nit,
+        isPersonal: true,
+        rol: vinculacionPersonal.rolId.name
+      }
+    }));
+  } catch (error) {
+    console.error("Error en inicialización:", error);
+    res.status(500).json(jsonResponse(500, { error: "Error al inicializar entorno" }));
+  }
+});
+
 // Listar todas las empresas a las que pertenece el usuario autenticado
 router.get("/mis-empresas", async (req, res) => {
   try {
