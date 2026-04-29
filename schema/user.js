@@ -8,16 +8,7 @@ const UserSchema = new Mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },
-  empresaId: {
-    type: Mongoose.Schema.Types.ObjectId,
-    ref: "Empresa",
-    required: true,
-  },
-  rolId: {
-    type: Mongoose.Schema.Types.ObjectId,
-    ref: "Rol",
-    required: true,
-  },
+  identification: { type: String, required: true, unique: true }, // Cédula o NIT de la persona natural
 });
 
 UserSchema.pre("save", async function (next) {
