@@ -28,6 +28,9 @@ const HistorialDocumentoSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  codigoTRD: {
+    type: String,
+  },
   tipoArchivo: {
     type: String,
     enum: ['PDF', 'DOCX'],

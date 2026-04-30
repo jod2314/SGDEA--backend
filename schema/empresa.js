@@ -1,16 +1,52 @@
 const Mongoose = require("mongoose");
 
 const EmpresaSchema = new Mongoose.Schema({
-  name: {
+  tipoPersona: {
+    type: String,
+    enum: ["natural", "juridica"],
+    default: "juridica",
+  },
+  razonSocial: {
     type: String,
     required: true,
+    trim: true,
+  },
+  nombreComercial: {
+    type: String,
     trim: true,
   },
   nit: {
     type: String,
     unique: true,
     trim: true,
-    sparse: true, // Permite múltiples documentos con valor nulo para NIT (espacios personales)
+    sparse: true,
+  },
+  digitoVerificacion: {
+    type: String,
+    length: 1,
+  },
+  nombres: {
+    type: String,
+    trim: true,
+  },
+  primerApellido: {
+    type: String,
+    trim: true,
+  },
+  segundoApellido: {
+    type: String,
+    trim: true,
+  },
+  tipoDocumentoId: {
+    type: String,
+    default: "NIT",
+  },
+  numeroDocumentoId: {
+    type: String,
+  },
+  sigla: {
+    type: String,
+    trim: true,
   },
   isPersonal: {
     type: Boolean,
@@ -20,8 +56,36 @@ const EmpresaSchema = new Mongoose.Schema({
     type: String,
     trim: true,
   },
+  ciudad: {
+    type: String,
+    trim: true,
+  },
+  departamento: {
+    type: String,
+    trim: true,
+  },
+  telefono: {
+    type: String,
+    trim: true,
+  },
+  correo: {
+    type: String,
+    trim: true,
+  },
+  sitioWeb: {
+    type: String,
+    trim: true,
+  },
   logo: {
     type: String, // Almacenará la imagen en Base64 o una URL
+  },
+  logoAlturaMm: {
+    type: Number,
+    default: 25.0,
+  },
+  logoAnchoMm: {
+    type: Number,
+    default: 60.0,
   },
   configuracion: {
     tipografia: { type: String, default: "Arial" },

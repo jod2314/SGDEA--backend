@@ -3,6 +3,7 @@ const router = express.Router();
 const Empresa = require("../schema/empresa");
 const UsuarioEmpresa = require("../schema/usuarioEmpresa");
 const Rol = require("../schema/rol");
+const User = require("../schema/user");
 const { jsonResponse } = require("../lib/jsonResponse");
 
 // Buscar empresa por NIT
@@ -22,10 +23,24 @@ router.get("/buscar/:nit", async (req, res) => {
     res.json(jsonResponse(200, { 
       empresa: {
         id: empresa._id,
-        name: empresa.name,
+        razonSocial: empresa.razonSocial,
         nit: empresa.nit,
         logo: empresa.logo,
-        direccion: empresa.direccion
+        direccion: empresa.direccion,
+        tipoPersona: empresa.tipoPersona,
+        nombreComercial: empresa.nombreComercial,
+        sigla: empresa.sigla,
+        nombres: empresa.nombres,
+        primerApellido: empresa.primerApellido,
+        segundoApellido: empresa.segundoApellido,
+        tipoDocumentoId: empresa.tipoDocumentoId,
+        numeroDocumentoId: empresa.numeroDocumentoId,
+        digitoVerificacion: empresa.digitoVerificacion,
+        ciudad: empresa.ciudad,
+        departamento: empresa.departamento,
+        telefono: empresa.telefono,
+        correo: empresa.correo,
+        sitioWeb: empresa.sitioWeb
       },
       yaVinculado: !!vinculacion
     }));
@@ -53,12 +68,9 @@ router.post("/vincular", async (req, res) => {
       return res.status(400).json(jsonResponse(400, { error: "Ya estás vinculado a esta empresa" }));
     }
 
-    // Por defecto, al vincularse a una empresa existente, se le asigna un rol de 'Visor' 
-    // o se crea un registro en estado 'INVITADO' (aquí lo pondremos como Visor activo por simplicidad)
     let visorRol = await Rol.findOne({ empresaId: empresa._id, name: "Visor" });
     
     if (!visorRol) {
-      // Si no existe el rol visor para esta empresa, lo creamos
       visorRol = new Rol({
         name: "Visor",
         empresaId: empresa._id,
@@ -83,11 +95,15 @@ router.post("/vincular", async (req, res) => {
 
 // Actualizar datos de una empresa o espacio personal
 router.put("/:id", async (req, res) => {
-  const { name, nit, direccion, logo, configuracion } = req.body;
+  const { 
+    razonSocial, nit, direccion, logo, configuracion,
+    tipoPersona, nombreComercial, nombres, primerApellido, segundoApellido,
+    tipoDocumentoId, numeroDocumentoId, sigla, ciudad, departamento,
+    telefono, correo, sitioWeb, logoAlturaMm, logoAnchoMm, digitoVerificacion
+  } = req.body;
   const { id } = req.params;
 
   try {
-    // 1. Verificar que el usuario sea administrador en esta empresa
     const vinculacion = await UsuarioEmpresa.findOne({ 
       usuarioId: req.user.id, 
       empresaId: id 
@@ -97,7 +113,6 @@ router.put("/:id", async (req, res) => {
       return res.status(403).json(jsonResponse(403, { error: "No tienes permisos para editar esta entidad" }));
     }
 
-    // 2. Si se cambia el NIT, verificar que no exista en otra empresa
     if (nit) {
       const nitExists = await Empresa.findOne({ nit, _id: { $ne: id } });
       if (nitExists) {
@@ -105,10 +120,14 @@ router.put("/:id", async (req, res) => {
       }
     }
 
-    // 3. Actualizar
     const empresaActualizada = await Empresa.findByIdAndUpdate(
       id,
-      { name, nit, direccion, logo, configuracion },
+      { 
+        razonSocial, nit, direccion, logo, configuracion,
+        tipoPersona, nombreComercial, nombres, primerApellido, segundoApellido,
+        tipoDocumentoId, numeroDocumentoId, sigla, ciudad, departamento,
+        telefono, correo, sitioWeb, logoAlturaMm, logoAnchoMm, digitoVerificacion
+      },
       { new: true }
     );
 
@@ -122,14 +141,11 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-const User = require("../schema/user");
-
 // Endpoint para inicializar el entorno del usuario tras el login
 router.post("/inicializar", async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // 1. Verificar si ya existe el espacio personal
     let vinculacionPersonal = await UsuarioEmpresa.findOne({ 
       usuarioId: userId 
     }).populate({
@@ -137,20 +153,17 @@ router.post("/inicializar", async (req, res) => {
       match: { isPersonal: true }
     });
 
-    // Si existe la vinculación pero no es personal (por el match), buscamos de nuevo con cuidado
     if (!vinculacionPersonal || !vinculacionPersonal.empresaId) {
-      // Buscar todas y filtrar manualmente para ser 100% precisos
       const todas = await UsuarioEmpresa.find({ usuarioId: userId }).populate("empresaId");
       vinculacionPersonal = todas.find(v => v.empresaId && v.empresaId.isPersonal);
     }
 
     if (!vinculacionPersonal) {
-      // 2. CREACIÓN FORZOSA DE ESPACIO PERSONAL
       const user = await User.findById(userId);
       if (!user) return res.status(404).json(jsonResponse(404, { error: "Usuario no encontrado" }));
 
       const personalSpace = new Empresa({ 
-        name: `Espacio Personal de ${user.name}`, 
+        razonSocial: `Espacio Personal de ${user.name}`, 
         nit: user.identification, 
         isPersonal: true 
       });
@@ -170,7 +183,6 @@ router.post("/inicializar", async (req, res) => {
       });
       await vinculacionPersonal.save();
       
-      // Recargar para tener el objeto completo
       vinculacionPersonal = await UsuarioEmpresa.findById(vinculacionPersonal._id).populate("empresaId").populate("rolId");
     }
 
@@ -178,7 +190,7 @@ router.post("/inicializar", async (req, res) => {
       message: "Entorno inicializado",
       personalSpace: {
         id: vinculacionPersonal.empresaId._id,
-        name: vinculacionPersonal.empresaId.name,
+        razonSocial: vinculacionPersonal.empresaId.razonSocial,
         nit: vinculacionPersonal.empresaId.nit,
         isPersonal: true,
         rol: vinculacionPersonal.rolId.name
@@ -193,29 +205,23 @@ router.post("/inicializar", async (req, res) => {
 // Listar todas las empresas a las que pertenece el usuario autenticado
 router.get("/mis-empresas", async (req, res) => {
   try {
-    // 1. Buscar membresías actuales
     let membresias = await UsuarioEmpresa.find({ usuarioId: req.user.id })
       .populate("empresaId")
       .populate("rolId");
 
-    // 2. Verificar si existe el espacio personal
     const tienePersonal = membresias.some(m => m.empresaId && m.empresaId.isPersonal);
 
     if (!tienePersonal) {
-      // LOGICA DE EMERGENCIA: Crear espacio personal si no existe
-      const User = require("../schema/user");
       const user = await User.findById(req.user.id);
       
       if (user) {
-        // a. Crear empresa personal
         const personalSpace = new Empresa({ 
-          name: `Espacio Personal de ${user.name}`, 
+          razonSocial: `Espacio Personal de ${user.name}`, 
           nit: user.identification, 
           isPersonal: true 
         });
         await personalSpace.save();
 
-        // b. Crear rol admin
         const adminRol = new Rol({
           name: "Administrador Personal",
           empresaId: personalSpace._id,
@@ -223,7 +229,6 @@ router.get("/mis-empresas", async (req, res) => {
         });
         await adminRol.save();
 
-        // c. Vincular
         const nuevaVinculacion = new UsuarioEmpresa({
           usuarioId: user._id,
           empresaId: personalSpace._id,
@@ -231,7 +236,6 @@ router.get("/mis-empresas", async (req, res) => {
         });
         await nuevaVinculacion.save();
 
-        // d. Recargar membresías para incluirlas en la respuesta
         membresias = await UsuarioEmpresa.find({ usuarioId: req.user.id })
           .populate("empresaId")
           .populate("rolId");
@@ -239,16 +243,18 @@ router.get("/mis-empresas", async (req, res) => {
     }
 
     const empresas = membresias
-      .filter(m => m.empresaId) // Evitar nulos si una empresa fue borrada
+      .filter(m => m.empresaId)
       .map((m) => ({
       id: m.empresaId._id,
-      name: m.empresaId.name,
+      razonSocial: m.empresaId.razonSocial,
       nit: m.empresaId.nit,
       logo: m.empresaId.logo,
       isPersonal: m.empresaId.isPersonal,
       rol: m.rolId.name,
       estado: m.estado,
-      direccion: m.empresaId.direccion
+      direccion: m.empresaId.direccion,
+      tipoPersona: m.empresaId.tipoPersona,
+      sigla: m.empresaId.sigla
     }));
 
     res.json(jsonResponse(200, { empresas }));
@@ -260,10 +266,10 @@ router.get("/mis-empresas", async (req, res) => {
 
 // Crear una nueva empresa y vincular al usuario como administrador
 router.post("/", async (req, res) => {
-  const { name, nit, direccion } = req.body;
+  const { razonSocial, nit, direccion, tipoPersona } = req.body;
 
-  if (!name || !nit) {
-    return res.status(400).json(jsonResponse(400, { error: "Nombre y NIT son requeridos" }));
+  if (!razonSocial || !nit) {
+    return res.status(400).json(jsonResponse(400, { error: "Razón Social y NIT son requeridos" }));
   }
 
   try {
@@ -272,11 +278,9 @@ router.post("/", async (req, res) => {
       return res.status(409).json(jsonResponse(409, { error: "El NIT ya está registrado" }));
     }
 
-    // 1. Crear empresa
-    const nuevaEmpresa = new Empresa({ name, nit, direccion });
+    const nuevaEmpresa = new Empresa({ razonSocial, nit, direccion, tipoPersona });
     await nuevaEmpresa.save();
 
-    // 2. Crear rol admin para esta empresa
     const adminRol = new Rol({
       name: "Administrador",
       empresaId: nuevaEmpresa._id,
@@ -284,7 +288,6 @@ router.post("/", async (req, res) => {
     });
     await adminRol.save();
 
-    // 3. Vincular usuario actual
     const vinculacion = new UsuarioEmpresa({
       usuarioId: req.user.id,
       empresaId: nuevaEmpresa._id,
@@ -296,7 +299,7 @@ router.post("/", async (req, res) => {
       message: "Empresa creada y vinculada exitosamente",
       empresa: {
         id: nuevaEmpresa._id,
-        name: nuevaEmpresa.name,
+        razonSocial: nuevaEmpresa.razonSocial,
         rol: adminRol.name
       }
     }));

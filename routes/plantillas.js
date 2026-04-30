@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const Plantilla = require("../schema/plantilla");
 const { jsonResponse } = require("../lib/jsonResponse");
-
 const PlantillaHistorico = require("../schema/plantillaHistorico");
 
 // Listar plantillas de la empresa activa
@@ -13,7 +12,7 @@ router.get("/", async (req, res) => {
   }
 
   try {
-    const plantillas = await Plantilla.find({ empresaId, activa: true });
+    const plantillas = await Plantilla.find({ empresaId, activa: true }).populate('subserieId');
     res.json(jsonResponse(200, { plantillas }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al obtener plantillas" }));
@@ -22,7 +21,7 @@ router.get("/", async (req, res) => {
 
 // Crear nueva plantilla
 router.post("/", async (req, res) => {
-  const { nombre, descripcion, contenidoHtml } = req.body;
+  const { nombre, descripcion, contenidoHtml, subserieId } = req.body;
   const empresaId = req.header("X-Empresa-ID");
 
   if (!empresaId) {
@@ -39,20 +38,37 @@ router.post("/", async (req, res) => {
       descripcion,
       contenidoHtml,
       empresaId,
-      versionActual: 1
+      subserieId,
+      versionActual: '0.1',
+      estado: 'borrador'
     });
     await nuevaPlantilla.save();
 
+    // Guardar en histórico inicial
+    const snapshot = new PlantillaHistorico({
+      plantillaId: nuevaPlantilla._id,
+      version: '0.1',
+      datosVersion: {
+        nombre: nuevaPlantilla.nombre,
+        descripcion: nuevaPlantilla.descripcion,
+        contenidoHtml: nuevaPlantilla.contenidoHtml,
+      },
+      modificadoPor: req.user.id,
+      comentario: "Versión inicial"
+    });
+    await snapshot.save();
+
     res.status(201).json(jsonResponse(201, { plantilla: nuevaPlantilla }));
   } catch (error) {
+    console.error(error);
     res.status(500).json(jsonResponse(500, { error: "Error al crear la plantilla" }));
   }
 });
 
-// Actualizar plantilla con versionado (Snapshot)
+// Actualizar plantilla con versionado semántico
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { nombre, descripcion, contenidoHtml, comentario } = req.body;
+  const { nombre, descripcion, contenidoHtml, subserieId, comentario } = req.body;
   const empresaId = req.header("X-Empresa-ID");
 
   try {
@@ -61,17 +77,22 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json(jsonResponse(404, { error: "Plantilla no encontrada" }));
     }
 
+    // Calcular nueva versión semántica (0.x)
+    const versionActual = plantillaExistente.versionActual || '0.0';
+    const [major, minor] = versionActual.split('.').map(Number);
+    const nuevaVersion = `${major}.${minor + 1}`;
+
     // 1. Guardar Snapshot de la versión anterior
     const snapshot = new PlantillaHistorico({
       plantillaId: id,
-      version: plantillaExistente.versionActual,
+      version: versionActual,
       datosVersion: {
         nombre: plantillaExistente.nombre,
         descripcion: plantillaExistente.descripcion,
         contenidoHtml: plantillaExistente.contenidoHtml,
       },
       modificadoPor: req.user.id,
-      comentario: comentario || "Actualización manual"
+      comentario: comentario || "Actualización de contenido"
     });
     await snapshot.save();
 
@@ -79,7 +100,8 @@ router.put("/:id", async (req, res) => {
     plantillaExistente.nombre = nombre || plantillaExistente.nombre;
     plantillaExistente.descripcion = descripcion || plantillaExistente.descripcion;
     plantillaExistente.contenidoHtml = contenidoHtml || plantillaExistente.contenidoHtml;
-    plantillaExistente.versionActual += 1;
+    plantillaExistente.subserieId = subserieId || plantillaExistente.subserieId;
+    plantillaExistente.versionActual = nuevaVersion;
     
     await plantillaExistente.save();
 
@@ -101,7 +123,7 @@ router.get("/:id/historial", async (req, res) => {
 
   try {
     const historial = await PlantillaHistorico.find({ plantillaId: id })
-      .sort({ version: -1 })
+      .sort({ createdAt: -1 })
       .populate("modificadoPor", "name");
     
     res.json(jsonResponse(200, { historial }));
@@ -116,7 +138,6 @@ router.post("/:id/clonar/:version", async (req, res) => {
   const empresaId = req.header("X-Empresa-ID");
 
   try {
-    // 1. Obtener los datos de la versión histórica
     const versionHistorica = await PlantillaHistorico.findOne({ plantillaId: id, version });
     if (!versionHistorica) {
       return res.status(404).json(jsonResponse(404, { error: "Versión no encontrada en el historial" }));
@@ -127,7 +148,9 @@ router.post("/:id/clonar/:version", async (req, res) => {
       return res.status(404).json(jsonResponse(404, { error: "Plantilla actual no encontrada" }));
     }
 
-    // 2. Guardar snapshot de la versión que vamos a sobrescribir
+    const [major, minor] = plantillaActual.versionActual.split('.').map(Number);
+    const nuevaVersion = `${major}.${minor + 1}`;
+
     const snapshot = new PlantillaHistorico({
       plantillaId: id,
       version: plantillaActual.versionActual,
@@ -141,16 +164,15 @@ router.post("/:id/clonar/:version", async (req, res) => {
     });
     await snapshot.save();
 
-    // 3. Restaurar los datos e incrementar versión
     plantillaActual.nombre = versionHistorica.datosVersion.nombre;
     plantillaActual.descripcion = versionHistorica.datosVersion.descripcion;
     plantillaActual.contenidoHtml = versionHistorica.datosVersion.contenidoHtml;
-    plantillaActual.versionActual += 1;
+    plantillaActual.versionActual = nuevaVersion;
     
     await plantillaActual.save();
 
     res.json(jsonResponse(200, { 
-      message: `Versión ${version} restaurada correctamente como versión ${plantillaActual.versionActual}`,
+      message: `Versión ${version} restaurada correctamente como versión ${nuevaVersion}`,
       plantilla: plantillaActual 
     }));
 
@@ -165,7 +187,7 @@ router.get("/:id", async (req, res) => {
   const empresaId = req.header("X-Empresa-ID");
 
   try {
-    const plantilla = await Plantilla.findOne({ _id: id, empresaId });
+    const plantilla = await Plantilla.findOne({ _id: id, empresaId }).populate('subserieId');
     if (!plantilla) {
       return res.status(404).json(jsonResponse(404, { error: "Plantilla no encontrada" }));
     }

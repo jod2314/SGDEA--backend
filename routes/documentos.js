@@ -4,7 +4,8 @@ const Plantilla = require("../schema/plantilla");
 const Entidad = require("../schema/entidad");
 const Empresa = require("../schema/empresa");
 const HistorialDocumento = require("../schema/historialDocumento");
-const { generarPdf } = require("../services/generadorDocumentos");
+const TRD = require("../schema/tablaRetencionDocumental");
+const { generarPdf, generarCodigoTRD } = require("../services/generadorDocumentos");
 const { jsonResponse } = require("../lib/jsonResponse");
 
 // Generar documento (Proyección)
@@ -19,7 +20,7 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
 
   try {
     // 1. Obtener Plantilla
-    const plantilla = await Plantilla.findOne({ _id: plantillaId, empresaId });
+    const plantilla = await Plantilla.findOne({ _id: plantillaId, empresaId }).populate('subserieId');
     if (!plantilla) {
       return res.status(404).json(jsonResponse(404, { error: "Plantilla no encontrada" }));
     }
@@ -27,7 +28,33 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
     // 2. Obtener Datos de la Empresa (Maestros)
     const empresa = await Empresa.findById(empresaId);
     
-    // 3. Obtener Datos de la Entidad (si aplica)
+    // 3. Resolver Código TRD si la plantilla tiene subserie vinculada
+    let codigoTRD = "";
+    if (plantilla.subserieId) {
+      // Buscar la configuración TRD para esta subserie en esta empresa
+      // Nota: Aquí asumimos que la plantilla está vinculada a una subserie, 
+      // y buscamos qué dependencia tiene asignada esa subserie en la TRD.
+      const trdDoc = await TRD.findOne({ 
+        empresaId, 
+        subserieId: plantilla.subserieId._id 
+      }).populate('dependenciaId').populate({
+        path: 'subserieId',
+        populate: { path: 'serieId' }
+      });
+
+      if (trdDoc) {
+        codigoTRD = await generarCodigoTRD({
+          empresaId,
+          codigoDep: trdDoc.dependenciaId.codigoDependencia,
+          codigoSer: trdDoc.subserieId.serieId.codigoSerie,
+          codigoSub: trdDoc.subserieId.codigoSubserie,
+          version: plantilla.versionActual,
+          anio: new Date().getFullYear().toString()
+        });
+      }
+    }
+
+    // 4. Obtener Datos de la Entidad (si aplica)
     let datosEntidad = {};
     if (entidadId) {
       const entidad = await Entidad.findOne({ _id: entidadId, empresaId });
@@ -36,29 +63,31 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
       }
     }
 
-    // 4. Fusionar todos los datos
+    // 5. Fusionar todos los datos
     const datosFinales = {
       empresa: empresa.toObject(),
       entidad: datosEntidad,
+      trd: codigoTRD,
       ...datosAdicionales,
       fecha_actual: new Date().toLocaleDateString('es-CO')
     };
 
-    // 5. Generar PDF
+    // 6. Generar PDF
     const { buffer, hash } = await generarPdf(plantilla.contenidoHtml, datosFinales);
 
-    // 6. Guardar Historial de Emisión
+    // 7. Guardar Historial de Emisión
     const nuevoHistorial = new HistorialDocumento({
       plantillaId,
       datosUsados: datosFinales,
       usuarioId: req.user.id,
       empresaId,
       hashIntegridad: hash,
+      codigoTRD: codigoTRD,
       tipoArchivo: 'PDF'
     });
     await nuevoHistorial.save();
 
-    // 7. Responder con el PDF
+    // 8. Responder con el PDF
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${plantilla.nombre.replace(/\s+/g, '_')}.pdf"`);
     res.setHeader('X-Document-Hash', hash);
