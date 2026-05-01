@@ -7,9 +7,31 @@ const log = require("./lib/trace");
 require("dotenv").config();
 
 app.use(express.json());
+
+const allowedOrigins = [
+  process.env.CORS_ORIGIN,
+  "https://sgdea-frontend.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000"
+];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // Permitir peticiones sin origen (como herramientas de testing)
+      if (!origin) return callback(null, true);
+      
+      const isAllowed = allowedOrigins.includes(origin) || 
+                        origin.endsWith(".vercel.app") ||
+                        origin.includes("localhost:");
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS bloqueado para el origen: ${origin}`);
+        callback(new Error("No permitido por CORS"));
+      }
+    },
     credentials: true,
   })
 );
