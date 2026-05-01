@@ -11,7 +11,6 @@ router.post("/", async function (req, res, next) {
   log.info("POST /api/refresh-token");
   const refreshToken = req.body.refreshToken;
   if (!refreshToken) {
-    console.log("No se proporcionó token de actualización", refreshToken);
     return res
       .status(401)
       .json({ error: "Token de actualización no proporcionado" });
