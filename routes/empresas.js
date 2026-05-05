@@ -277,7 +277,18 @@ router.get("/mis-empresas", async (req, res) => {
       direccion: m.empresaId.direccion,
       tipoPersona: m.empresaId.tipoPersona,
       sigla: m.empresaId.sigla,
-      onboardingCompleted: m.empresaId.onboardingCompleted
+      onboardingCompleted: m.empresaId.onboardingCompleted,
+      nombres: m.empresaId.nombres,
+      primerApellido: m.empresaId.primerApellido,
+      segundoApellido: m.empresaId.segundoApellido,
+      ciudad: m.empresaId.ciudad,
+      departamento: m.empresaId.departamento,
+      telefono: m.empresaId.telefono,
+      correo: m.empresaId.correo,
+      sitioWeb: m.empresaId.sitioWeb,
+      logoAlturaMm: m.empresaId.logoAlturaMm,
+      logoAnchoMm: m.empresaId.logoAnchoMm,
+      digitoVerificacion: m.empresaId.digitoVerificacion
     }));
 
     res.json(jsonResponse(200, { empresas }));
