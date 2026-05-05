@@ -254,7 +254,8 @@ router.get("/mis-empresas", async (req, res) => {
       estado: m.estado,
       direccion: m.empresaId.direccion,
       tipoPersona: m.empresaId.tipoPersona,
-      sigla: m.empresaId.sigla
+      sigla: m.empresaId.sigla,
+      onboardingCompleted: m.empresaId.onboardingCompleted
     }));
 
     res.json(jsonResponse(200, { empresas }));
@@ -300,7 +301,12 @@ router.post("/", async (req, res) => {
       empresa: {
         id: nuevaEmpresa._id,
         razonSocial: nuevaEmpresa.razonSocial,
-        rol: adminRol.name
+        nit: nuevaEmpresa.nit,
+        direccion: nuevaEmpresa.direccion,
+        tipoPersona: nuevaEmpresa.tipoPersona,
+        isPersonal: nuevaEmpresa.isPersonal,
+        rol: adminRol.name,
+        estado: "ACTIVO" // Estado por defecto de la vinculación
       }
     }));
   } catch (error) {

@@ -100,6 +100,10 @@ const EmpresaSchema = new Mongoose.Schema({
       right: { type: String, default: "2.5cm" },
     },
   },
+  onboardingCompleted: {
+    type: Boolean,
+    default: false,
+  },
   planSuscripcion: {
     type: String,
     enum: ["BASIC", "PRO", "ENTERPRISE"],
