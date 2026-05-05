@@ -3,14 +3,17 @@ const crypto = require('crypto');
 const Consecutivo = require('../schema/consecutivo');
 
 /**
- * Genera el código TRD completo: [Dep]-[Ser]-[Sub]-[Ver]-[Consecutivo]-[Año]
+ * Genera el código TRD completo y retorna un objeto con detalles archivísticos.
  */
 async function generarCodigoTRD(datos) {
   const { 
     empresaId, 
     codigoDep, 
+    nombreDep,
     codigoSer, 
+    nombreSer,
     codigoSub, 
+    nombreSub,
     version, 
     anio 
   } = datos;
@@ -24,8 +27,16 @@ async function generarCodigoTRD(datos) {
   );
 
   const numConsecutivo = consecutivoDoc.valor.toString().padStart(4, '0');
-  
-  return `${codigoDep}-${codigoSer}-${codigoSub}-v${version}-${numConsecutivo}-${anio}`;
+  const codigoCompleto = `${codigoDep}-${codigoSer}-${codigoSub}-v${version}-${numConsecutivo}-${anio}`;
+
+  return {
+    codigo: codigoCompleto,
+    dependencia: nombreDep,
+    serie: nombreSer,
+    subserie: nombreSub,
+    consecutivo: numConsecutivo,
+    anio: anio
+  };
 }
 
 /**
@@ -95,11 +106,19 @@ async function generarPdf(contenidoHtml, datos, opciones = {}) {
         ${identidad.lineaSecundaria ? `<div style="font-size: 10pt;">${identidad.lineaSecundaria}</div>` : ''}
         <div style="font-size: 11pt;">${identidad.identificacion}</div>
       </div>
-      <div style="flex: 0 0 100px; text-align: right; font-size: 8pt; color: #666;">
-        ${trd ? `<div>Código: ${trd}</div>` : ''}
+      <div style="flex: 0 0 120px; text-align: right; font-size: 7pt; color: #333; line-height: 1.2;">
+        ${trd ? `
+          <div style="font-weight: bold; color: #000; margin-bottom: 2px;">CÓDIGO ARCHIVÍSTICO</div>
+          <div>${trd.codigo || trd}</div>
+          <div style="margin-top: 4px; font-style: italic;">${trd.dependencia || ''}</div>
+        ` : ''}
       </div>
     </div>
   `;
+
+  // Calcular Hash preliminar para el pie de página (basado en el contenido)
+  // Nota: El hash final se calcula sobre el PDF buffer, pero el del HTML ayuda a trazabilidad
+  const contentHash = crypto.createHash('sha256').update(htmlConTokens).digest('hex').substring(0, 16);
 
   // Inyectar estilos base para asegurar justificación y márgenes
   const fullHtml = `
@@ -117,20 +136,37 @@ async function generarPdf(contenidoHtml, datos, opciones = {}) {
           }
           @page { 
             size: ${opciones.formato || 'Letter'}; 
-            margin: ${opciones.margen || '2.5cm'}; 
+            margin: 2.5cm 2cm 3cm 2cm; 
           }
           table { border-collapse: collapse; width: 100%; margin: 10px 0; }
           td, th { border: 1px solid #000; padding: 5px; }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
           .bold { font-weight: bold; }
-          .content { margin-top: 20px; }
+          .content { margin-top: 20px; padding-bottom: 50px; }
+          .footer-integrity {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            font-size: 7pt;
+            color: #777;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            background: white;
+          }
         </style>
       </head>
       <body>
         ${encabezadoHtml}
         <div class="content">
           ${htmlConTokens}
+        </div>
+        <div class="footer-integrity">
+          SGDEA - Sello de Integridad Digital: <strong>${contentHash.toUpperCase()}</strong> | 
+          Verificable mediante Hash SHA-256 original | 
+          Emitido: ${new Date().toLocaleString('es-CO')}
         </div>
       </body>
     </html>

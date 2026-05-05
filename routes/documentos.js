@@ -29,11 +29,8 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
     const empresa = await Empresa.findById(empresaId);
     
     // 3. Resolver Código TRD si la plantilla tiene subserie vinculada
-    let codigoTRD = "";
+    let datosTRD = null;
     if (plantilla.subserieId) {
-      // Buscar la configuración TRD para esta subserie en esta empresa
-      // Nota: Aquí asumimos que la plantilla está vinculada a una subserie, 
-      // y buscamos qué dependencia tiene asignada esa subserie en la TRD.
       const trdDoc = await TRD.findOne({ 
         empresaId, 
         subserieId: plantilla.subserieId._id 
@@ -42,16 +39,24 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
         populate: { path: 'serieId' }
       });
 
-      if (trdDoc) {
-        codigoTRD = await generarCodigoTRD({
-          empresaId,
-          codigoDep: trdDoc.dependenciaId.codigoDependencia,
-          codigoSer: trdDoc.subserieId.serieId.codigoSerie,
-          codigoSub: trdDoc.subserieId.codigoSubserie,
-          version: plantilla.versionActual,
-          anio: new Date().getFullYear().toString()
-        });
+      if (!trdDoc) {
+        return res.status(400).json(jsonResponse(400, { 
+          error: "Configuración TRD incompleta", 
+          detalle: `La subserie '${plantilla.subserieId.nombreSubserie}' no ha sido vinculada a ninguna dependencia en la TRD.` 
+        }));
       }
+
+      datosTRD = await generarCodigoTRD({
+        empresaId,
+        codigoDep: trdDoc.dependenciaId.codigoDependencia,
+        nombreDep: trdDoc.dependenciaId.nombreDependencia,
+        codigoSer: trdDoc.subserieId.serieId.codigoSerie,
+        nombreSer: trdDoc.subserieId.serieId.nombreSerie,
+        codigoSub: trdDoc.subserieId.codigoSubserie,
+        nombreSub: trdDoc.subserieId.nombreSubserie,
+        version: plantilla.versionActual,
+        anio: new Date().getFullYear().toString()
+      });
     }
 
     // 4. Obtener Datos de la Entidad (si aplica)
@@ -67,9 +72,9 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
     const datosFinales = {
       empresa: empresa.toObject(),
       entidad: datosEntidad,
-      trd: codigoTRD,
-      ...datosAdicionales,
-      fecha_actual: new Date().toLocaleDateString('es-CO')
+      trd: datosTRD,
+      fecha_actual: new Date().toLocaleDateString('es-CO'),
+      ...datosAdicionales
     };
 
     // 6. Generar PDF
@@ -82,7 +87,7 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
       usuarioId: req.user.id,
       empresaId,
       hashIntegridad: hash,
-      codigoTRD: codigoTRD,
+      codigoTRD: datosTRD ? datosTRD.codigo : "",
       tipoArchivo: 'PDF'
     });
     await nuevoHistorial.save();
