@@ -3,6 +3,7 @@ const router = express.Router();
 const Plantilla = require("../schema/plantilla");
 const { jsonResponse } = require("../lib/jsonResponse");
 const PlantillaHistorico = require("../schema/plantillaHistorico");
+const { registrarAuditoria } = require("../lib/audit");
 
 // Listar plantillas de la empresa activa
 router.get("/", async (req, res) => {
@@ -58,6 +59,13 @@ router.post("/", async (req, res) => {
     });
     await snapshot.save();
 
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'CREAR_PLANTILLA',
+      detalles: { nombre: nuevaPlantilla.nombre, id: nuevaPlantilla._id }
+    });
+
     res.status(201).json(jsonResponse(201, { plantilla: nuevaPlantilla }));
   } catch (error) {
     console.error(error);
@@ -104,6 +112,13 @@ router.put("/:id", async (req, res) => {
     plantillaExistente.versionActual = nuevaVersion;
     
     await plantillaExistente.save();
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_PLANTILLA',
+      detalles: { nombre: plantillaExistente.nombre, version: nuevaVersion, id }
+    });
 
     res.json(jsonResponse(200, { 
       message: "Plantilla actualizada y versionada correctamente",
@@ -170,6 +185,13 @@ router.post("/:id/clonar/:version", async (req, res) => {
     plantillaActual.versionActual = nuevaVersion;
     
     await plantillaActual.save();
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'RESTAURAR_VERSION_PLANTILLA',
+      detalles: { nombre: plantillaActual.nombre, versionRestaurada: version, nuevaVersion, id }
+    });
 
     res.json(jsonResponse(200, { 
       message: `Versión ${version} restaurada correctamente como versión ${nuevaVersion}`,

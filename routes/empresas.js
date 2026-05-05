@@ -5,6 +5,7 @@ const UsuarioEmpresa = require("../schema/usuarioEmpresa");
 const Rol = require("../schema/rol");
 const User = require("../schema/user");
 const { jsonResponse } = require("../lib/jsonResponse");
+const { registrarAuditoria } = require("../lib/audit");
 
 // Buscar empresa por NIT
 router.get("/buscar/:nit", async (req, res) => {
@@ -87,6 +88,13 @@ router.post("/vincular", async (req, res) => {
     });
     await nuevaVinculacion.save();
 
+    await registrarAuditoria({
+      empresaId: empresa._id,
+      usuarioId: req.user.id,
+      accion: 'VINCULAR_EMPRESA',
+      detalles: { razonSocial: empresa.razonSocial }
+    });
+
     res.json(jsonResponse(200, { message: "Vinculación exitosa" }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al vincular empresa" }));
@@ -130,6 +138,13 @@ router.put("/:id", async (req, res) => {
       },
       { new: true }
     );
+
+    await registrarAuditoria({
+      empresaId: id,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_EMPRESA',
+      detalles: { razonSocial: empresaActualizada.razonSocial }
+    });
 
     res.json(jsonResponse(200, { 
       message: "Datos actualizados correctamente",
@@ -183,6 +198,13 @@ router.post("/inicializar", async (req, res) => {
       });
       await vinculacionPersonal.save();
       
+      await registrarAuditoria({
+        empresaId: personalSpace._id,
+        usuarioId: userId,
+        accion: 'INICIALIZAR_ESPACIO_PERSONAL',
+        detalles: { nit: user.identification }
+      });
+
       vinculacionPersonal = await UsuarioEmpresa.findById(vinculacionPersonal._id).populate("empresaId").populate("rolId");
     }
 
@@ -295,6 +317,13 @@ router.post("/", async (req, res) => {
       rolId: adminRol._id,
     });
     await vinculacion.save();
+
+    await registrarAuditoria({
+      empresaId: nuevaEmpresa._id,
+      usuarioId: req.user.id,
+      accion: 'CREAR_EMPRESA',
+      detalles: { razonSocial, nit }
+    });
 
     res.status(201).json(jsonResponse(201, {
       message: "Empresa creada y vinculada exitosamente",

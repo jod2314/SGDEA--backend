@@ -83,6 +83,7 @@ app.use("/api/plantillas", authenticateToken, require("./routes/plantillas"));
 app.use("/api/entidades", authenticateToken, require("./routes/entidades"));
 app.use("/api/archivistica", authenticateToken, require("./routes/archivistica"));
 app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
+app.use("/api/audit", authenticateToken, require("./routes/audit"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port}`);

@@ -7,6 +7,7 @@ const HistorialDocumento = require("../schema/historialDocumento");
 const TRD = require("../schema/tablaRetencionDocumental");
 const { generarPdf, generarCodigoTRD } = require("../services/generadorDocumentos");
 const { jsonResponse } = require("../lib/jsonResponse");
+const { registrarAuditoria } = require("../lib/audit");
 
 // Generar documento (Proyección)
 router.post("/proyectar/:plantillaId", async (req, res) => {
@@ -91,6 +92,17 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
       tipoArchivo: 'PDF'
     });
     await nuevoHistorial.save();
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'GENERAR_DOCUMENTO',
+      detalles: { 
+        plantilla: plantilla.nombre, 
+        codigoTRD: datosTRD ? datosTRD.codigo : "N/A",
+        hashIntegridad: hash 
+      }
+    });
 
     // 8. Responder con el PDF
     res.setHeader('Content-Type', 'application/pdf');

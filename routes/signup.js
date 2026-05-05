@@ -67,6 +67,13 @@ router.post("/", async function (req, res, next) {
     });
     await vinculacion.save();
 
+    await registrarAuditoria({
+      empresaId: personalSpace._id,
+      usuarioId: newUser._id,
+      accion: 'REGISTRO_USUARIO',
+      detalles: { username, identification }
+    });
+
     // --- Fin de la creación ---
 
     res.json(

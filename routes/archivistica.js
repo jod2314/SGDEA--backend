@@ -5,6 +5,7 @@ const SerieDocumental = require("../schema/serieDocumental");
 const SubserieDocumental = require("../schema/subserieDocumental");
 const TRD = require("../schema/tablaRetencionDocumental");
 const { jsonResponse } = require("../lib/jsonResponse");
+const { registrarAuditoria } = require("../lib/audit");
 
 // --- DEPENDENCIAS ---
 
@@ -37,6 +38,14 @@ router.post("/dependencias", async (req, res) => {
       esJuntaDirectiva
     });
     await nueva.save();
+    
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'CREAR_DEPENDENCIA',
+      detalles: { codigo: codigoDependencia, nombre: nombreDependencia }
+    });
+
     res.status(201).json(jsonResponse(201, { dependencia: nueva }));
   } catch (error) {
     console.error(error);
@@ -47,12 +56,21 @@ router.post("/dependencias", async (req, res) => {
 // Actualizar dependencia
 router.put("/dependencias/:id", async (req, res) => {
   const { codigoDependencia, nombreDependencia, dependenciaPadreId, esJuntaDirectiva, estado } = req.body;
+  const empresaId = req.headers["x-empresa-id"];
   try {
     const actualizada = await Dependencia.findByIdAndUpdate(
       req.params.id,
       { codigoDependencia, nombreDependencia, dependenciaPadreId: dependenciaPadreId || null, esJuntaDirectiva, estado },
       { new: true }
     );
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_DEPENDENCIA',
+      detalles: { id: req.params.id, nombre: nombreDependencia }
+    });
+
     res.json(jsonResponse(200, { dependencia: actualizada }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al actualizar dependencia" }));
@@ -61,6 +79,7 @@ router.put("/dependencias/:id", async (req, res) => {
 
 // Eliminar dependencia
 router.delete("/dependencias/:id", async (req, res) => {
+  const empresaId = req.headers["x-empresa-id"];
   try {
     // Verificar si tiene sub-dependencias
     const tieneHijos = await Dependencia.exists({ dependenciaPadreId: req.params.id });
@@ -68,7 +87,16 @@ router.delete("/dependencias/:id", async (req, res) => {
       return res.status(400).json(jsonResponse(400, { error: "No se puede eliminar una dependencia que tiene sub-dependencias" }));
     }
     
+    const dep = await Dependencia.findById(req.params.id);
     await Dependencia.findByIdAndDelete(req.params.id);
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ELIMINAR_DEPENDENCIA',
+      detalles: { id: req.params.id, nombre: dep?.nombreDependencia }
+    });
+
     res.json(jsonResponse(200, { message: "Dependencia eliminada" }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al eliminar dependencia" }));
@@ -104,6 +132,14 @@ router.post("/series", async (req, res) => {
       origen: 'manual'
     });
     await nueva.save();
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'CREAR_SERIE',
+      detalles: { codigo: codigoSerie, nombre: nombreSerie }
+    });
+
     res.status(201).json(jsonResponse(201, { serie: nueva }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al crear serie" }));
@@ -113,12 +149,21 @@ router.post("/series", async (req, res) => {
 // Actualizar serie
 router.put("/series/:id", async (req, res) => {
   const { codigoSerie, nombreSerie, tiempoRetencionGestion, tiempoRetencionCentral, disposicionFinal } = req.body;
+  const empresaId = req.headers["x-empresa-id"];
   try {
     const actualizada = await SerieDocumental.findByIdAndUpdate(
       req.params.id,
       { codigoSerie, nombreSerie, tiempoRetencionGestion, tiempoRetencionCentral, disposicionFinal },
       { new: true }
     );
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_SERIE',
+      detalles: { id: req.params.id, nombre: nombreSerie }
+    });
+
     res.json(jsonResponse(200, { serie: actualizada }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al actualizar serie" }));
@@ -127,13 +172,24 @@ router.put("/series/:id", async (req, res) => {
 
 // Eliminar serie
 router.delete("/series/:id", async (req, res) => {
+  const empresaId = req.headers["x-empresa-id"];
   try {
     // Verificar si tiene subseries
     const tieneSubseries = await SubserieDocumental.exists({ serieId: req.params.id });
     if (tieneSubseries) {
       return res.status(400).json(jsonResponse(400, { error: "No se puede eliminar una serie que tiene subseries" }));
     }
+
+    const serie = await SerieDocumental.findById(req.params.id);
     await SerieDocumental.findByIdAndDelete(req.params.id);
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ELIMINAR_SERIE',
+      detalles: { id: req.params.id, nombre: serie?.nombreSerie }
+    });
+
     res.json(jsonResponse(200, { message: "Serie eliminada" }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al eliminar serie" }));
@@ -153,9 +209,18 @@ router.get("/series/:serieId/subseries", async (req, res) => {
 // Crear subserie
 router.post("/subseries", async (req, res) => {
   const { serieId, codigoSubserie, nombreSubserie } = req.body;
+  const empresaId = req.headers["x-empresa-id"];
   try {
     const nueva = new SubserieDocumental({ serieId, codigoSubserie, nombreSubserie });
     await nueva.save();
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'CREAR_SUBSERIE',
+      detalles: { codigo: codigoSubserie, nombre: nombreSubserie, serieId }
+    });
+
     res.status(201).json(jsonResponse(201, { subserie: nueva }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al crear subserie" }));
@@ -164,8 +229,18 @@ router.post("/subseries", async (req, res) => {
 
 // Eliminar subserie
 router.delete("/subseries/:id", async (req, res) => {
+  const empresaId = req.headers["x-empresa-id"];
   try {
+    const sub = await SubserieDocumental.findById(req.params.id);
     await SubserieDocumental.findByIdAndDelete(req.params.id);
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ELIMINAR_SUBSERIE',
+      detalles: { id: req.params.id, nombre: sub?.nombreSubserie }
+    });
+
     res.json(jsonResponse(200, { message: "Subserie eliminada" }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al eliminar subserie" }));
@@ -243,6 +318,14 @@ router.post("/importar-banter", async (req, res) => {
         }
       }
     }
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'IMPORTAR_BANTER',
+      detalles: { count: seriesBanter.length }
+    });
+
     res.json(jsonResponse(200, { message: "Catálogo BANTER importado con éxito" }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al importar catálogo BANTER" }));
@@ -272,6 +355,13 @@ router.post("/trd", async (req, res) => {
     });
     await nuevaTRD.save();
 
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'VINCULAR_TRD',
+      detalles: { codigo: codigoTRD, dependencia: dep.nombreDependencia, subserie: sub.nombreSubserie }
+    });
+
     res.status(201).json(jsonResponse(201, { trd: nuevaTRD }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al crear TRD" }));
@@ -296,8 +386,18 @@ router.get("/trd", async (req, res) => {
 
 // Eliminar entrada de TRD
 router.delete("/trd/:id", async (req, res) => {
+  const empresaId = req.headers["x-empresa-id"];
   try {
+    const trd = await TRD.findById(req.params.id);
     await TRD.findByIdAndDelete(req.params.id);
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ELIMINAR_TRD',
+      detalles: { id: req.params.id, codigo: trd?.codigoTRD }
+    });
+
     res.json(jsonResponse(200, { message: "Entrada de TRD eliminada" }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al eliminar TRD" }));
