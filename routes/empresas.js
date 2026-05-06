@@ -395,7 +395,10 @@ router.post("/:id/onboarding/completar", async (req, res) => {
     res.json(jsonResponse(200, { message: "Onboarding completado exitosamente" }));
   } catch (error) {
     console.error("CRITICAL ERROR in /onboarding/completar:", error);
-    res.status(500).json(jsonResponse(500, { error: "Error interno al completar el onboarding" }));
+    res.status(500).json(jsonResponse(500, { 
+      error: "Error interno al completar el onboarding",
+      debug: error.message 
+    }));
   }
 });
 
