@@ -360,6 +360,11 @@ router.post("/:id/onboarding/completar", async (req, res) => {
   const { id } = req.params;
 
   try {
+    // Validar formato de ID
+    if (!require("mongoose").Types.ObjectId.isValid(id)) {
+      return res.status(400).json(jsonResponse(400, { error: "ID de entidad inválido" }));
+    }
+
     const empresa = await Empresa.findById(id);
     if (!empresa) {
       return res.status(404).json(jsonResponse(404, { error: "Empresa no encontrada" }));
@@ -371,8 +376,10 @@ router.post("/:id/onboarding/completar", async (req, res) => {
       empresaId: id 
     }).populate("rolId");
 
-    if (!vinculacion || !vinculacion.rolId.permissions.isAdmin) {
-      return res.status(403).json(jsonResponse(403, { error: "No tienes permisos para realizar esta acción" }));
+    const esAdmin = vinculacion?.rolId?.permissions?.isAdmin;
+
+    if (!vinculacion || !esAdmin) {
+      return res.status(403).json(jsonResponse(403, { error: "No tienes permisos de administrador para realizar esta acción" }));
     }
 
     empresa.onboardingCompleted = true;
@@ -387,8 +394,8 @@ router.post("/:id/onboarding/completar", async (req, res) => {
 
     res.json(jsonResponse(200, { message: "Onboarding completado exitosamente" }));
   } catch (error) {
-    console.error(error);
-    res.status(500).json(jsonResponse(500, { error: "Error al completar el onboarding" }));
+    console.error("CRITICAL ERROR in /onboarding/completar:", error);
+    res.status(500).json(jsonResponse(500, { error: "Error interno al completar el onboarding" }));
   }
 });
 
