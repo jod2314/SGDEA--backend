@@ -113,6 +113,15 @@ const EmpresaSchema = new Mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+}, {
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
 });
 
 module.exports = Mongoose.model("Empresa", EmpresaSchema);

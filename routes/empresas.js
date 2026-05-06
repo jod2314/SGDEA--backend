@@ -360,41 +360,48 @@ router.post("/:id/onboarding/completar", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Validar formato de ID
     if (!require("mongoose").Types.ObjectId.isValid(id)) {
       return res.status(400).json(jsonResponse(400, { error: "ID de entidad inválido" }));
     }
 
-    const empresa = await Empresa.findById(id);
-    if (!empresa) {
-      return res.status(404).json(jsonResponse(404, { error: "Empresa no encontrada" }));
-    }
-
-    // Verificar permisos (solo admin)
+    // Verificar vinculación y permisos de admin
     const vinculacion = await UsuarioEmpresa.findOne({ 
       usuarioId: req.user.id, 
       empresaId: id 
     }).populate("rolId");
 
-    const esAdmin = vinculacion?.rolId?.permissions?.isAdmin;
-
-    if (!vinculacion || !esAdmin) {
-      return res.status(403).json(jsonResponse(403, { error: "No tienes permisos de administrador para realizar esta acción" }));
+    if (!vinculacion) {
+      return res.status(403).json(jsonResponse(403, { error: "No estás vinculado a esta empresa" }));
     }
 
-    empresa.onboardingCompleted = true;
-    await empresa.save();
+    const isAdmin = vinculacion.rolId?.permissions?.isAdmin === true;
+    if (!isAdmin) {
+      return res.status(403).json(jsonResponse(403, { error: "Se requieren permisos de administrador" }));
+    }
+
+    const empresaActualizada = await Empresa.findByIdAndUpdate(
+      id,
+      { onboardingCompleted: true },
+      { new: true }
+    );
+
+    if (!empresaActualizada) {
+      return res.status(404).json(jsonResponse(404, { error: "Empresa no encontrada" }));
+    }
 
     await registrarAuditoria({
       empresaId: id,
       usuarioId: req.user.id,
       accion: 'COMPLETAR_ONBOARDING',
-      detalles: { razonSocial: empresa.razonSocial }
+      detalles: { razonSocial: empresaActualizada.razonSocial }
     });
 
-    res.json(jsonResponse(200, { message: "Onboarding completado exitosamente" }));
+    res.json(jsonResponse(200, { 
+      message: "Onboarding completado exitosamente",
+      empresa: empresaActualizada 
+    }));
   } catch (error) {
-    console.error("CRITICAL ERROR in /onboarding/completar:", error);
+    console.error("ERROR COMPLETAR ONBOARDING:", error);
     res.status(500).json(jsonResponse(500, { 
       error: "Error interno al completar el onboarding",
       debug: error.message 
