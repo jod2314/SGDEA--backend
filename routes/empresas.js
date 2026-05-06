@@ -355,4 +355,41 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Marcar onboarding como completado
+router.post("/:id/onboarding/completar", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const empresa = await Empresa.findById(id);
+    if (!empresa) {
+      return res.status(404).json(jsonResponse(404, { error: "Empresa no encontrada" }));
+    }
+
+    // Verificar permisos (solo admin)
+    const vinculacion = await UsuarioEmpresa.findOne({ 
+      usuarioId: req.user.id, 
+      empresaId: id 
+    }).populate("rolId");
+
+    if (!vinculacion || !vinculacion.rolId.permissions.isAdmin) {
+      return res.status(403).json(jsonResponse(403, { error: "No tienes permisos para realizar esta acción" }));
+    }
+
+    empresa.onboardingCompleted = true;
+    await empresa.save();
+
+    await registrarAuditoria({
+      empresaId: id,
+      usuarioId: req.user.id,
+      accion: 'COMPLETAR_ONBOARDING',
+      detalles: { razonSocial: empresa.razonSocial }
+    });
+
+    res.json(jsonResponse(200, { message: "Onboarding completado exitosamente" }));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(jsonResponse(500, { error: "Error al completar el onboarding" }));
+  }
+});
+
 module.exports = router;
