@@ -30,7 +30,17 @@ const DependenciaSchema = new mongoose.Schema({
     enum: ['activo', 'inactivo'],
     default: 'activo',
   },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
 
 // Índice único compuesto por empresa y código de dependencia
 DependenciaSchema.index({ empresaId: 1, codigoDependencia: 1 }, { unique: true });

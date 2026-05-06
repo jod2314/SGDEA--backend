@@ -26,7 +26,17 @@ const TRDSchema = new mongoose.Schema({
     enum: ['vigente', 'obsoleto'],
     default: 'vigente',
   },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
 
 // Índice único compuesto por dependencia y subserie para una empresa
 TRDSchema.index({ dependenciaId: 1, subserieId: 1 }, { unique: true });

@@ -49,6 +49,9 @@ router.post("/dependencias", async (req, res) => {
     res.status(201).json(jsonResponse(201, { dependencia: nueva }));
   } catch (error) {
     console.error(error);
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json(jsonResponse(400, { error: "Datos de dependencia inválidos (posible ID superior incorrecto)" }));
+    }
     res.status(500).json(jsonResponse(500, { error: "Error al crear dependencia" }));
   }
 });
@@ -73,6 +76,10 @@ router.put("/dependencias/:id", async (req, res) => {
 
     res.json(jsonResponse(200, { dependencia: actualizada }));
   } catch (error) {
+    console.error(error);
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json(jsonResponse(400, { error: "Datos de actualización inválidos" }));
+    }
     res.status(500).json(jsonResponse(500, { error: "Error al actualizar dependencia" }));
   }
 });
@@ -142,6 +149,10 @@ router.post("/series", async (req, res) => {
 
     res.status(201).json(jsonResponse(201, { serie: nueva }));
   } catch (error) {
+    console.error(error);
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json(jsonResponse(400, { error: "Datos de serie inválidos" }));
+    }
     res.status(500).json(jsonResponse(500, { error: "Error al crear serie" }));
   }
 });
@@ -166,6 +177,10 @@ router.put("/series/:id", async (req, res) => {
 
     res.json(jsonResponse(200, { serie: actualizada }));
   } catch (error) {
+    console.error(error);
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json(jsonResponse(400, { error: "Datos de actualización inválidos" }));
+    }
     res.status(500).json(jsonResponse(500, { error: "Error al actualizar serie" }));
   }
 });
@@ -223,6 +238,10 @@ router.post("/subseries", async (req, res) => {
 
     res.status(201).json(jsonResponse(201, { subserie: nueva }));
   } catch (error) {
+    console.error(error);
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json(jsonResponse(400, { error: "Datos de subserie inválidos" }));
+    }
     res.status(500).json(jsonResponse(500, { error: "Error al crear subserie" }));
   }
 });

@@ -16,7 +16,17 @@ const SubserieDocumentalSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
 
 // Índice único compuesto por serie y código de subserie
 SubserieDocumentalSchema.index({ serieId: 1, codigoSubserie: 1 }, { unique: true });

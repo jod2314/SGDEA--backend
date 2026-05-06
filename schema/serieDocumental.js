@@ -31,7 +31,17 @@ const SerieDocumentalSchema = new mongoose.Schema({
     enum: ['BANTER', 'manual'],
     default: 'manual',
   },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
 
 // Índice único compuesto por empresa y código de serie
 SerieDocumentalSchema.index({ empresaId: 1, codigoSerie: 1 }, { unique: true });
