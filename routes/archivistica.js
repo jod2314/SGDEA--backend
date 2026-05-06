@@ -9,8 +9,62 @@ const { registrarAuditoria } = require("../lib/audit");
 
 // --- DEPENDENCIAS ---
 
-// Obtener todas las dependencias de una empresa
-router.get("/dependencias", async (req, res) => {
+const BanterMaster = require("../schema/banterMaster");
+
+// Buscar en el Banco Terminológico Maestro
+router.get("/banter/buscar", async (req, res) => {
+  const { q, nivel } = req.query;
+  try {
+    let query = {};
+    if (q) {
+      query.$or = [
+        { nombre: { $regex: q, $options: "i" } },
+        { codigo: { $regex: q, $options: "i" } }
+      ];
+    }
+    if (nivel) query.nivel = nivel;
+
+    const sugerencias = await BanterMaster.find(query).limit(10);
+    res.json(jsonResponse(200, { sugerencias }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al buscar en BANTER" }));
+  }
+});
+
+// Importar entrada de BANTER al CCD de la empresa
+router.post("/banter/importar", async (req, res) => {
+  const { banterId } = req.body;
+  const empresaId = req.headers["x-empresa-id"];
+
+  try {
+    const item = await BanterMaster.findById(banterId);
+    if (!item) return res.status(404).json(jsonResponse(404, { error: "Item de BANTER no encontrado" }));
+
+    if (item.nivel === 'SERIE') {
+      const existe = await SerieDocumental.findOne({ empresaId, codigoSerie: item.codigo });
+      if (existe) return res.status(409).json(jsonResponse(409, { error: "La serie ya existe en tu CCD" }));
+
+      const nuevaSerie = new SerieDocumental({
+        empresaId,
+        codigoSerie: item.codigo,
+        nombreSerie: item.nombre,
+        origen: 'BANTER',
+        tiempoRetencionGestion: item.retencionGestion,
+        tiempoRetencionCentral: item.retencionCentral,
+        disposicionFinal: item.disposicionFinal?.toUpperCase() || 'CONSERVACIÓN TOTAL'
+      });
+      await nuevaSerie.save();
+      return res.json(jsonResponse(200, { message: "Serie importada", serie: nuevaSerie }));
+    } 
+
+    // Si es subserie, requiere manejar la relación con la serie local...
+    // Por ahora simplificamos la respuesta
+    res.status(400).json(jsonResponse(400, { error: "Funcionalidad de importación de subseries en desarrollo" }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al importar desde BANTER" }));
+  }
+});
+
   const empresaId = req.headers["x-empresa-id"];
   if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "X-Empresa-ID header es requerido" }));
 
