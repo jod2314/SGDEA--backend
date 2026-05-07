@@ -7,6 +7,7 @@ const TRD = require("../schema/tablaRetencionDocumental");
 const { jsonResponse } = require("../lib/jsonResponse");
 const { registrarAuditoria } = require("../lib/audit");
 
+// Versión: 1.0.1 - Corrección de sintaxis verificada
 // --- DEPENDENCIAS ---
 
 const BanterMaster = require("../schema/banterMaster");
