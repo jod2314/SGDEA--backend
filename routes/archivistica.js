@@ -66,8 +66,9 @@ router.post("/banter/importar", async (req, res) => {
   }
 });
 
-// Obtener dependencias
+// Obtener dependencias - VERSIÓN DEPURACIÓN 2026-05-07-v2
 router.get("/dependencias", async (req, res) => {
+  console.log("Accediendo a GET /dependencias - Verificación de despliegue activa");
   const empresaId = req.headers["x-empresa-id"];
   if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "X-Empresa-ID header es requerido" }));
 
