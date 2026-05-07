@@ -90,7 +90,7 @@ app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
 app.use("/api/audit", authenticateToken, require("./routes/audit"));
 
 app.listen(port, () => {
-  console.log(`Server is up on port ${port}`);
+  console.log(`Server is up on port ${port} - Deploy verification: ${new Date().toISOString()}`);
 });
 
 module.exports = app;
