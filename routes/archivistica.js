@@ -65,6 +65,8 @@ router.post("/banter/importar", async (req, res) => {
   }
 });
 
+// Obtener dependencias
+router.get("/dependencias", async (req, res) => {
   const empresaId = req.headers["x-empresa-id"];
   if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "X-Empresa-ID header es requerido" }));
 
