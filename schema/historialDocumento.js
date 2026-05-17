@@ -28,6 +28,13 @@ const HistorialDocumentoSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  numeroRadicado: {
+    type: String,
+  },
+  expedienteId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Expediente',
+  },
   codigoTRD: {
     type: String,
   },

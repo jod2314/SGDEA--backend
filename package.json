@@ -25,6 +25,7 @@
     "nodemon": "^2.0.22",
     "pdf-parse": "^1.1.1",
     "xlsx": "^0.18.5",
+    "xmlbuilder2": "^4.0.3",
     "zod": "^4.1.13"
   },
   "devDependencies": {
