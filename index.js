@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const app = express();
 const mongoose = require("mongoose");
 const authenticateToken = require("./auth/authenticateToken");
@@ -14,6 +15,7 @@ const allowedOrigins = [
   "http://localhost:3000",
 ].filter(Boolean);
 
+app.use(cookieParser());
 app.use(
   cors({
     origin: (origin, callback) => {

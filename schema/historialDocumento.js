@@ -46,4 +46,7 @@ const HistorialDocumentoSchema = new mongoose.Schema({
   // Opcional: Referencia a un archivo en S3 o almacenamiento de buffers (no recomendado en MongoDB para archivos grandes)
 }, { timestamps: true });
 
+HistorialDocumentoSchema.index({ empresaId: 1, createdAt: -1 });
+HistorialDocumentoSchema.index({ numeroRadicado: 1 }, { sparse: true });
+
 module.exports = mongoose.model('HistorialDocumento', HistorialDocumentoSchema);

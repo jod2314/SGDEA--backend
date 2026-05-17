@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { z } = require("zod");
 const Plantilla = require("../schema/plantilla");
 const Entidad = require("../schema/entidad");
 const Empresa = require("../schema/empresa");
@@ -11,13 +12,22 @@ const { emitirRadicadoAtomico } = require("../services/radicacionService");
 const { jsonResponse } = require("../lib/jsonResponse");
 const { registrarAuditoria } = require("../lib/audit");
 
+const proyectarBodySchema = z.object({
+  entidadId: z.string().optional(),
+  datosAdicionales: z.record(z.any()).optional().default({}),
+  emitirRadicado: z.boolean().optional().default(true)
+});
+
 // Generar documento (Proyección)
 router.post("/proyectar/:plantillaId", async (req, res) => {
   const { plantillaId } = req.params;
-  const { entidadId, datosAdicionales, emitirRadicado = true } = req.body;
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext.id; // USO ESTANDARIZADO DEL CONTEXTO (Tenant Isolation)
 
   try {
+    // VALIDACIÓN DE ENTRADA CON ZOD
+    const validatedBody = proyectarBodySchema.parse(req.body);
+    const { entidadId, datosAdicionales, emitirRadicado } = validatedBody;
+
     // 1. Obtener Plantilla y validar contexto
     const plantilla = await Plantilla.findOne({ _id: plantillaId, empresaId }).populate('subserieId');
     if (!plantilla) return res.status(404).json(jsonResponse(404, { error: "Plantilla no encontrada" }));
@@ -51,13 +61,10 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
         };
 
         if (emitirRadicado) {
-          // Emitir radicado usando el motor atómico. 
-          // Se usa un código de configuración estándar o uno personalizado por subserie
           try {
             radicado = await emitirRadicadoAtomico('RAD_GENERAL', empresaId, req.user.id, null);
           } catch (e) {
             console.warn("No se pudo emitir radicado atómico:", e.message);
-            // Si no hay config RAD_GENERAL, usamos uno temporal o fallamos según política
           }
         }
       }
@@ -65,7 +72,7 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
 
     // 5. Fusionar todos los datos para la plantilla
     const dataContext = {
-      empresa: datosMaestrosConsolidados.membrete || {}, // Fallback a membrete si existe
+      empresa: datosMaestrosConsolidados.membrete || {},
       maestros: datosMaestrosConsolidados,
       entidad: datosEntidad,
       documento: {
@@ -77,7 +84,7 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
       ...datosAdicionales
     };
 
-    // 6. Generar PDF con el motor de fusión
+    // 6. Generar PDF con el motor de fusión protegido
     const { buffer, hash, htmlFinal } = await generarPDFDocumental(plantilla.contenidoHtml, dataContext);
 
     // 7. Guardar Historial de Emisión (Snapshot Inmutable)
@@ -85,7 +92,7 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
       plantillaId: plantilla._id,
       empresaId,
       usuarioId: req.user.id,
-      datosUsados: dataContext, // Snapshot completo de los datos en ese momento
+      datosUsados: dataContext,
       hashIntegridad: hash,
       codigoTRD: trdInfo?.codigo || "",
       numeroRadicado: radicado,
@@ -97,11 +104,7 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
       empresaId,
       usuarioId: req.user.id,
       accion: 'PROYECTAR_DOCUMENTO',
-      detalles: { 
-        radicado, 
-        plantilla: plantilla.nombre, 
-        hash 
-      }
+      detalles: { radicado, plantilla: plantilla.nombre, hash }
     });
 
     // 8. Responder con el buffer del PDF
@@ -112,21 +115,45 @@ router.post("/proyectar/:plantillaId", async (req, res) => {
 
   } catch (error) {
     console.error("ERROR EN PROYECCIÓN:", error);
-    res.status(500).json(jsonResponse(500, { error: "Fallo crítico al proyectar documento", debug: error.message }));
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(jsonResponse(400, { error: "Datos de entrada inválidos", detalles: error.errors }));
+    }
+    res.status(500).json(jsonResponse(500, { error: "Fallo crítico al proyectar documento" }));
   }
 });
 
-// Listar historial de documentos de la empresa
+// Listar historial de documentos de la empresa (Paginación por Cursor)
 router.get("/historial", async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext.id;
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const lastId = req.query.lastId; // El cursor es el _id del último elemento de la página anterior
+
   try {
-    const historial = await HistorialDocumento.find({ empresaId })
+    const query = { empresaId };
+    if (lastId) {
+      query._id = { $lt: lastId }; // Asumiendo orden descendente por fecha/id
+    }
+
+    const historial = await HistorialDocumento.find(query)
       .populate('plantillaId', 'nombre')
       .populate('usuarioId', 'name')
-      .sort({ createdAt: -1 })
-      .limit(100);
-    res.json(jsonResponse(200, { historial }));
+      .sort({ _id: -1 }) // El _id de MongoDB incluye timestamp y es eficiente para orden cronológico inverso
+      .limit(limit);
+      
+    const hasMore = historial.length === limit;
+    const nextCursor = hasMore ? historial[historial.length - 1]._id : null;
+
+    res.json(jsonResponse(200, { 
+      historial,
+      paginacion: { 
+        limit, 
+        nextCursor,
+        hasMore
+      }
+    }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al obtener historial" }));
   }
 });
+
+module.exports = router;
