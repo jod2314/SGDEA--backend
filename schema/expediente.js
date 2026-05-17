@@ -34,6 +34,11 @@ const ExpedienteSchema = new mongoose.Schema({
     enum: ['ABIERTO', 'CERRADO'],
     default: 'ABIERTO',
   },
+  ubicacion: {
+    type: String,
+    enum: ['GESTION', 'CENTRAL', 'HISTORICO', 'ELIMINADO'],
+    default: 'GESTION',
+  },
   fechaApertura: {
     type: Date,
     default: Date.now,

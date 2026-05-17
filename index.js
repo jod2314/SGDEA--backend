@@ -94,6 +94,7 @@ app.use("/api/audit", authenticateToken, verifyEmpresaContext, require("./routes
 app.use("/api/consecutivos", authenticateToken, verifyEmpresaContext, require("./routes/consecutivos"));
 app.use("/api/datos-maestros", authenticateToken, verifyEmpresaContext, require("./routes/datosMaestros"));
 app.use("/api/expedientes", authenticateToken, verifyEmpresaContext, require("./routes/expedientes"));
+app.use("/api/transferencias", authenticateToken, verifyEmpresaContext, require("./routes/transferencias"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port} - Deploy verification: ${new Date().toISOString()}`);
