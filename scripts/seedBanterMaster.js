@@ -1,121 +1,65 @@
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+const csv = require('csv-parser');
 const BanterMaster = require('../schema/banterMaster');
-require('dotenv').config({ path: './backend/.env' });
-
-const banterData = [
-  // SERIES MISIONALES / TRANSVERSALES
-  {
-    nivel: 'SERIE',
-    codigo: '01',
-    nombre: 'ACCIONES CONSTITUCIONALES',
-    definicion: 'Serie documental en la que se agrupan los instrumentos y mecanismos constitucionales que tienen por objeto proteger, respetar y garantizar los derechos del individuo y de una colectividad.',
-    tiposDocumentales: ['Notificación', 'Acción (Demanda)', 'Poder', 'Fallo de primera instancia', 'Recurso de apelación'],
-    retencionGestion: 5,
-    retencionCentral: 10,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SUBSERIE',
-    codigo: '01.01',
-    nombre: 'Acciones de Cumplimiento',
-    seriePadreCodigo: '01',
-    definicion: 'Mecanismo para asegurar la efectividad de las normas.',
-    tiposDocumentales: ['Demanda', 'Auto admisorio', 'Sentencia'],
-    retencionGestion: 5,
-    retencionCentral: 10,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SUBSERIE',
-    codigo: '01.02',
-    nombre: 'Acciones de Grupo',
-    seriePadreCodigo: '01',
-    definicion: 'Acciones interpuestas por un número plural de personas que reúnen condiciones uniformes respecto de una misma causa que les originó perjuicios individuales.',
-    tiposDocumentales: ['Notificación', 'Poder', 'Fallo'],
-    retencionGestion: 5,
-    retencionCentral: 10,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SERIE',
-    codigo: '02',
-    nombre: 'ACTAS',
-    definicion: 'Documento escrito de lo tratado o acordado en una junta o reunión o que atestigua un acontecimiento con temas referentes a las funciones de la Unidad.',
-    tiposDocumentales: ['Acta de reunión', 'Listado de asistencia'],
-    retencionGestion: 2,
-    retencionCentral: 18,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SUBSERIE',
-    codigo: '02.01',
-    nombre: 'Actas de Comité Directivo',
-    seriePadreCodigo: '02',
-    definicion: 'Evidencia las decisiones tomadas en el Comité Directivo.',
-    tiposDocumentales: ['Acta', 'Anexos'],
-    retencionGestion: 2,
-    retencionCentral: 18,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SERIE',
-    codigo: '03',
-    nombre: 'ACTOS ADMINISTRATIVOS',
-    definicion: 'Todo acto dictado por la administración en el ejercicio de una potestad administrativa.',
-    tiposDocumentales: ['Resolución', 'Circular', 'Directiva'],
-    retencionGestion: 2,
-    retencionCentral: 18,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SERIE',
-    codigo: '08',
-    nombre: 'CONTRATOS',
-    definicion: 'Actos jurídicos generadores de obligaciones que celebren las entidades.',
-    tiposDocumentales: ['Estudio previo', 'Contrato', 'Poliza', 'Informe de supervisión', 'Acta de liquidación'],
-    retencionGestion: 5,
-    retencionCentral: 15,
-    disposicionFinal: 'Selección'
-  },
-  {
-    nivel: 'SERIE',
-    codigo: '11',
-    nombre: 'HISTORIAS LABORALES',
-    definicion: 'Serie de manejo y acceso reservado donde se conservan cronológicamente los documentos del vínculo laboral del funcionario.',
-    tiposDocumentales: ['Hoja de vida', 'Diploma', 'Acta de posesión', 'Resolución de nombramiento'],
-    retencionGestion: 5,
-    retencionCentral: 75,
-    disposicionFinal: 'Conservación Total'
-  },
-  {
-    nivel: 'SERIE',
-    codigo: '12',
-    nombre: 'INFORMES',
-    definicion: 'Documento que contiene las conclusiones obtenidas al examinar aspectos financieros, económicos o administrativos.',
-    tiposDocumentales: ['Informe de gestión', 'Informe de ley', 'Estadísticas'],
-    retencionGestion: 2,
-    retencionCentral: 8,
-    disposicionFinal: 'Selección'
-  }
-];
+require('dotenv').config();
 
 async function seedBanter() {
+  console.log('🚀 Iniciando carga masiva de BANTER Master...');
+  
   try {
     await mongoose.connect(process.env.DB_CONNECTION_STRING);
-    console.log('Conectado a MongoDB...');
+    console.log('✅ Conectado a MongoDB');
 
-    // Limpiar catálogo previo para evitar duplicados en el máster
-    await BanterMaster.deleteMany({});
-    console.log('Catálogo maestro BANTER limpiado.');
+    // Limpiar catálogo actual (opcional, dependiendo de si quieres refrescar)
+    // await BanterMaster.deleteMany({});
+    // console.log('🗑️ Catálogo previo limpiado');
 
-    await BanterMaster.insertMany(banterData);
-    console.log(`Se han cargado ${banterData.length} entradas al BANTER Maestro.`);
+    const results = [];
+    const csvPath = path.join(__dirname, '../../documentos apoyo/BANTER_Series_Subseries.csv');
 
-    await mongoose.disconnect();
-    console.log('Proceso completado.');
+    fs.createReadStream(csvPath)
+      .pipe(csv({ separator: ';' }))
+      .on('data', (data) => {
+        // Mapear datos del CSV al esquema BanterMaster
+        results.push({
+          nivel: data.NIVEL,
+          codigo: data.CODIGO,
+          nombre: data.NOMBRE,
+          definicion: data.DEFINICION,
+          tiposDocumentales: data.TIPOS_DOCUMENTALES ? data.TIPOS_DOCUMENTALES.split(',').map(t => t.trim()) : [],
+          retencionGestion: parseInt(data.RETENCION_GESTION) || 0,
+          retencionCentral: parseInt(data.RETENCION_CENTRAL) || 0,
+          disposicionFinal: data.DISPOSICION_FINAL || 'Conservación Total',
+          seriePadreCodigo: data.NIVEL === 'SUBSERIE' ? data.CODIGO.split('.')[0] : null,
+          transversal: true
+        });
+      })
+      .on('end', async () => {
+        console.log(`📦 Procesados ${results.length} registros del CSV. Insertando en BD...`);
+        
+        // Insertar uno por uno para manejar duplicados o errores de validación si es necesario,
+        // o usar insertMany para velocidad.
+        try {
+          // Usamos upsert basado en código para evitar duplicados si se corre varias veces
+          for (const item of results) {
+            await BanterMaster.findOneAndUpdate(
+              { codigo: item.codigo, nivel: item.nivel },
+              item,
+              { upsert: true, new: true }
+            );
+          }
+          console.log('✨ Carga de BANTER Master finalizada con éxito.');
+        } catch (error) {
+          console.error('❌ Error al insertar registros:', error);
+        } finally {
+          mongoose.connection.close();
+        }
+      });
+
   } catch (error) {
-    console.error('Error en seeding:', error);
-    process.exit(1);
+    console.error('❌ Error de conexión:', error);
   }
 }
 

@@ -3,6 +3,7 @@ const cors = require("cors");
 const app = express();
 const mongoose = require("mongoose");
 const authenticateToken = require("./auth/authenticateToken");
+const verifyEmpresaContext = require("./middleware/verifyEmpresaContext");
 const log = require("./lib/trace");
 require("dotenv").config();
 
@@ -83,11 +84,13 @@ app.use("/api/posts", authenticateToken, require("./routes/posts"));
 
 app.use("/api/user", authenticateToken, require("./routes/user"));
 app.use("/api/empresas", authenticateToken, require("./routes/empresas"));
-app.use("/api/plantillas", authenticateToken, require("./routes/plantillas"));
-app.use("/api/entidades", authenticateToken, require("./routes/entidades"));
-app.use("/api/archivistica", authenticateToken, require("./routes/archivistica"));
-app.use("/api/documentos", authenticateToken, require("./routes/documentos"));
-app.use("/api/audit", authenticateToken, require("./routes/audit"));
+
+// Rutas operativas protegidas por contexto de empresa
+app.use("/api/plantillas", authenticateToken, verifyEmpresaContext, require("./routes/plantillas"));
+app.use("/api/entidades", authenticateToken, verifyEmpresaContext, require("./routes/entidades"));
+app.use("/api/archivistica", authenticateToken, verifyEmpresaContext, require("./routes/archivistica"));
+app.use("/api/documentos", authenticateToken, verifyEmpresaContext, require("./routes/documentos"));
+app.use("/api/audit", authenticateToken, verifyEmpresaContext, require("./routes/audit"));
 
 app.listen(port, () => {
   console.log(`Server is up on port ${port} - Deploy verification: ${new Date().toISOString()}`);

@@ -16,6 +16,16 @@ const SubserieDocumentalSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  tiempoRetencionGestion: {
+    type: Number, // Años en archivo de oficina
+  },
+  tiempoRetencionCentral: {
+    type: Number, // Años en archivo central
+  },
+  disposicionFinal: {
+    type: String,
+    enum: ['Conservación Total', 'Eliminación', 'Selección', 'Medio Técnico'],
+  },
 }, { 
   timestamps: true,
   toJSON: {

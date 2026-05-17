@@ -32,9 +32,9 @@ router.get("/banter/buscar", async (req, res) => {
   }
 });
 
-// Importar entrada de BANTER al CCD de la empresa
+// Importar entrada de BANTER al CCD de la empresa (Serie y opcionalmente sus subseries)
 router.post("/banter/importar", async (req, res) => {
-  const { banterId } = req.body;
+  const { banterId, incluirSubseries } = req.body;
   const empresaId = req.headers["x-empresa-id"];
 
   try {
@@ -42,26 +42,98 @@ router.post("/banter/importar", async (req, res) => {
     if (!item) return res.status(404).json(jsonResponse(404, { error: "Item de BANTER no encontrado" }));
 
     if (item.nivel === 'SERIE') {
-      const existe = await SerieDocumental.findOne({ empresaId, codigoSerie: item.codigo });
-      if (existe) return res.status(409).json(jsonResponse(409, { error: "La serie ya existe en tu CCD" }));
+      let serieDoc = await SerieDocumental.findOne({ empresaId, codigoSerie: item.codigo });
+      
+      if (!serieDoc) {
+        serieDoc = new SerieDocumental({
+          empresaId,
+          codigoSerie: item.codigo,
+          nombreSerie: item.nombre,
+          origen: 'BANTER',
+          tiempoRetencionGestion: item.retencionGestion,
+          tiempoRetencionCentral: item.retencionCentral,
+          disposicionFinal: item.disposicionFinal
+        });
+        await serieDoc.save();
+      }
 
-      const nuevaSerie = new SerieDocumental({
+      let subseriesImportadas = 0;
+      if (incluirSubseries) {
+        const subBanter = await BanterMaster.find({ nivel: 'SUBSERIE', seriePadreCodigo: item.codigo });
+        for (const sub of subBanter) {
+          const existeSub = await SubserieDocumental.findOne({ serieId: serieDoc._id, codigoSubserie: sub.codigo });
+          if (!existeSub) {
+            const nuevaSub = new SubserieDocumental({
+              serieId: serieDoc._id,
+              codigoSubserie: sub.codigo,
+              nombreSubserie: sub.nombre,
+              tiempoRetencionGestion: sub.retencionGestion,
+              tiempoRetencionCentral: sub.retencionCentral,
+              disposicionFinal: sub.disposicionFinal
+            });
+            await nuevaSub.save();
+            subseriesImportadas++;
+          }
+        }
+      }
+
+      await registrarAuditoria({
         empresaId,
-        codigoSerie: item.codigo,
-        nombreSerie: item.nombre,
-        origen: 'BANTER',
-        tiempoRetencionGestion: item.retencionGestion,
-        tiempoRetencionCentral: item.retencionCentral,
-        disposicionFinal: item.disposicionFinal?.toUpperCase() || 'CONSERVACIÓN TOTAL'
+        usuarioId: req.user.id,
+        accion: 'IMPORTAR_SERIE_BANTER',
+        detalles: { codigo: item.codigo, nombre: item.nombre, subseriesCount: subseriesImportadas }
       });
-      await nuevaSerie.save();
-      return res.json(jsonResponse(200, { message: "Serie importada", serie: nuevaSerie }));
+
+      return res.json(jsonResponse(200, { 
+        message: `Serie ${item.codigo} importada con éxito. ${subseriesImportadas} subseries añadidas.`,
+        serie: serieDoc 
+      }));
     } 
 
-    // Si es subserie, requiere manejar la relación con la serie local...
-    // Por ahora simplificamos la respuesta
-    res.status(400).json(jsonResponse(400, { error: "Funcionalidad de importación de subseries en desarrollo" }));
+    if (item.nivel === 'SUBSERIE') {
+      const serieBanter = await BanterMaster.findOne({ nivel: 'SERIE', codigo: item.seriePadreCodigo });
+      if (!serieBanter) return res.status(404).json(jsonResponse(404, { error: "Serie padre en BANTER no encontrada" }));
+
+      let serieDoc = await SerieDocumental.findOne({ empresaId, codigoSerie: serieBanter.codigo });
+      if (!serieDoc) {
+        serieDoc = new SerieDocumental({
+          empresaId,
+          codigoSerie: serieBanter.codigo,
+          nombreSerie: serieBanter.nombre,
+          origen: 'BANTER',
+          tiempoRetencionGestion: serieBanter.retencionGestion,
+          tiempoRetencionCentral: serieBanter.retencionCentral,
+          disposicionFinal: serieBanter.disposicionFinal
+        });
+        await serieDoc.save();
+      }
+
+      const existeSub = await SubserieDocumental.findOne({ serieId: serieDoc._id, codigoSubserie: item.codigo });
+      if (existeSub) return res.status(409).json(jsonResponse(409, { error: "La subserie ya existe en tu CCD" }));
+
+      const nuevaSub = new SubserieDocumental({
+        serieId: serieDoc._id,
+        codigoSubserie: item.codigo,
+        nombreSubserie: item.nombre,
+        tiempoRetencionGestion: item.retencionGestion,
+        tiempoRetencionCentral: item.retencionCentral,
+        disposicionFinal: item.disposicionFinal
+      });
+      await nuevaSub.save();
+
+      await registrarAuditoria({
+        empresaId,
+        usuarioId: req.user.id,
+        accion: 'IMPORTAR_SUBSERIE_BANTER',
+        detalles: { codigo: item.codigo, nombre: item.nombre }
+      });
+
+      return res.json(jsonResponse(200, { message: "Subserie importada con éxito", subserie: nuevaSub }));
+    }
+
+    res.status(400).json(jsonResponse(400, { error: "Nivel de BANTER no válido" }));
   } catch (error) {
+    console.error(error);
     res.status(500).json(jsonResponse(500, { error: "Error al importar desde BANTER" }));
   }
 });
@@ -281,10 +353,17 @@ router.get("/series/:serieId/subseries", async (req, res) => {
 
 // Crear subserie
 router.post("/subseries", async (req, res) => {
-  const { serieId, codigoSubserie, nombreSubserie } = req.body;
+  const { serieId, codigoSubserie, nombreSubserie, tiempoRetencionGestion, tiempoRetencionCentral, disposicionFinal } = req.body;
   const empresaId = req.headers["x-empresa-id"];
   try {
-    const nueva = new SubserieDocumental({ serieId, codigoSubserie, nombreSubserie });
+    const nueva = new SubserieDocumental({ 
+      serieId, 
+      codigoSubserie, 
+      nombreSubserie,
+      tiempoRetencionGestion,
+      tiempoRetencionCentral,
+      disposicionFinal
+    });
     await nueva.save();
 
     await registrarAuditoria({
@@ -301,6 +380,30 @@ router.post("/subseries", async (req, res) => {
       return res.status(400).json(jsonResponse(400, { error: "Datos de subserie inválidos" }));
     }
     res.status(500).json(jsonResponse(500, { error: "Error al crear subserie" }));
+  }
+});
+
+// Actualizar subserie
+router.put("/subseries/:id", async (req, res) => {
+  const { codigoSubserie, nombreSubserie, tiempoRetencionGestion, tiempoRetencionCentral, disposicionFinal } = req.body;
+  const empresaId = req.headers["x-empresa-id"];
+  try {
+    const actualizada = await SubserieDocumental.findByIdAndUpdate(
+      req.params.id,
+      { codigoSubserie, nombreSubserie, tiempoRetencionGestion, tiempoRetencionCentral, disposicionFinal },
+      { new: true }
+    );
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_SUBSERIE',
+      detalles: { id: req.params.id, nombre: nombreSubserie }
+    });
+
+    res.json(jsonResponse(200, { subserie: actualizada }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al actualizar subserie" }));
   }
 });
 
@@ -417,10 +520,16 @@ router.post("/trd", async (req, res) => {
   const { dependenciaId, subserieId } = req.body;
 
   try {
-    const dep = await Dependencia.findById(dependenciaId);
+    const dep = await Dependencia.findOne({ _id: dependenciaId, empresaId });
     const sub = await SubserieDocumental.findById(subserieId).populate('serieId');
     
-    if (!dep || !sub) return res.status(404).json(jsonResponse(404, { error: "Dependencia o Subserie no encontrada" }));
+    if (!dep || !sub) {
+      return res.status(404).json(jsonResponse(404, { error: "Dependencia o Subserie no encontrada en el contexto de tu empresa." }));
+    }
+
+    if (sub.serieId.empresaId.toString() !== empresaId) {
+      return res.status(403).json(jsonResponse(403, { error: "La serie documental no pertenece a tu empresa." }));
+    }
 
     const codigoTRD = `${dep.codigoDependencia}-${sub.serieId.codigoSerie}-${sub.codigoSubserie}`;
 
@@ -441,7 +550,11 @@ router.post("/trd", async (req, res) => {
 
     res.status(201).json(jsonResponse(201, { trd: nuevaTRD }));
   } catch (error) {
-    res.status(500).json(jsonResponse(500, { error: "Error al crear TRD" }));
+    if (error.code === 11000) {
+      return res.status(400).json(jsonResponse(400, { error: "Esta combinación de Dependencia y Subserie ya existe en tu TRD." }));
+    }
+    console.error("Error al crear TRD:", error);
+    res.status(500).json(jsonResponse(500, { error: "Error interno al crear la entrada en la TRD" }));
   }
 });
 

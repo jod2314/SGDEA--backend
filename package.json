@@ -14,6 +14,7 @@
     "bcrypt": "^5.1.0",
     "bunyan": "^1.8.15",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.1",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "html-pdf-node": "^1.0.8",
@@ -25,5 +26,8 @@
     "pdf-parse": "^1.1.1",
     "xlsx": "^0.18.5",
     "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "axios": "^1.16.1"
   }
 }
