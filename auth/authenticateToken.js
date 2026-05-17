@@ -20,8 +20,8 @@ function authenticateToken(req, res, next) {
   }
 
   try {
-    const decoded = verifyAccessToken(token);
-    req.user = decoded;
+    const payload = verifyAccessToken(token);
+    req.user = payload.user; // ACCESO AL OBJETO USER DENTRO DEL PAYLOAD
     next();
   } catch (err) {
     console.log("6 Token inválido", token, err);
