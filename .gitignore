@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .env
+
+# Caché de agentes descargados (sistema de orquestación)
+.agents/cache/
