@@ -51,7 +51,8 @@ router.post("/", async (req, res) => {
       empresaId,
       usuarioId: req.user.id,
       accion: 'ABRIR_EXPEDIENTE',
-      detalles: { nombre: nombreExpediente, codigoTRD: trd.codigoTRD }
+      detalles: { nombre: nombreExpediente, codigoTRD: trd.codigoTRD },
+      req
     });
 
     res.status(201).json(jsonResponse(201, { expediente: nuevoExpediente }));
@@ -70,7 +71,7 @@ router.get("/:id", async (req, res) => {
     
     if (!expediente) return res.status(404).json(jsonResponse(404, { error: "Expediente no encontrado" }));
 
-    const documentos = await HistorialDocumento.find({ expedienteId: expediente._id })
+    const documentos = await HistorialDocumento.find({ expedienteId: expediente._id, empresaId })
       .sort({ createdAt: 1 })
       .populate('usuarioId', 'name');
 
@@ -102,7 +103,8 @@ router.post("/:id/vincular-documento", async (req, res) => {
       empresaId,
       usuarioId: req.user.id,
       accion: 'VINCULAR_DOC_EXPEDIENTE',
-      detalles: { expediente: expediente.nombreExpediente, radicado: doc.numeroRadicado }
+      detalles: { expediente: expediente.nombreExpediente, radicado: doc.numeroRadicado },
+      req
     });
 
     res.json(jsonResponse(200, { message: "Documento vinculado", documento: doc }));
@@ -132,13 +134,48 @@ router.post("/:id/cerrar", async (req, res) => {
       empresaId,
       usuarioId: req.user.id,
       accion: 'CERRAR_EXPEDIENTE',
-      detalles: { nombre: expediente.nombreExpediente, hashIndice: 'Calculado en XML' }
+      detalles: { nombre: expediente.nombreExpediente, hashIndice: 'Calculado en XML' },
+      req
     });
 
     res.json(jsonResponse(200, { message: "Expediente cerrado con éxito e índice generado", expediente }));
   } catch (error) {
     console.error(error);
     res.status(500).json(jsonResponse(500, { error: "Error al cerrar expediente" }));
+  }
+});
+
+// Actualizar ubicación física de un expediente
+router.put("/:id/ubicacion", async (req, res) => {
+  const empresaId = req.headers["x-empresa-id"];
+  const { seccion, bloque, estante, peldano, caja, carpeta } = req.body;
+
+  try {
+    const expediente = await Expediente.findOne({ _id: req.params.id, empresaId });
+    if (!expediente) return res.status(404).json(jsonResponse(404, { error: "Expediente no encontrado" }));
+
+    expediente.ubicacionFisica = {
+      seccion: seccion || "",
+      bloque: bloque || "",
+      estante: estante || "",
+      peldano: peldano || "",
+      caja: caja || "",
+      carpeta: carpeta || ""
+    };
+
+    await expediente.save();
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_UBICACION_FISICA',
+      detalles: { nombre: expediente.nombreExpediente, ubicacionFisica: expediente.ubicacionFisica },
+      req
+    });
+
+    res.json(jsonResponse(200, { message: "Ubicación física actualizada con éxito", expediente }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al actualizar la ubicación física" }));
   }
 });
 

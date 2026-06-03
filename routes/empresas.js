@@ -409,4 +409,26 @@ router.post("/:id/onboarding/completar", async (req, res) => {
   }
 });
 
+// Obtener usuarios vinculados a la empresa para asignación de jefes
+router.get("/:id/usuarios", async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Validar que el usuario que consulta pertenezca a la empresa
+    const vinculacion = await UsuarioEmpresa.findOne({ 
+      usuarioId: req.user.id, 
+      empresaId: id 
+    });
+
+    if (!vinculacion) {
+      return res.status(403).json(jsonResponse(403, { error: "No tienes permiso para acceder a esta empresa" }));
+    }
+
+    const vinculaciones = await UsuarioEmpresa.find({ empresaId: id }).populate("usuarioId", "name email");
+    const usuarios = vinculaciones.map(v => v.usuarioId).filter(Boolean);
+    res.json(jsonResponse(200, { usuarios }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al obtener usuarios" }));
+  }
+});
+
 module.exports = router;

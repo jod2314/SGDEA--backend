@@ -112,6 +112,7 @@ app.use("/api/transferencias", authenticateToken, verifyEmpresaContext, require(
 app.use("/api/disposicion", authenticateToken, verifyEmpresaContext, require("./routes/disposicion"));
 app.use("/api/onboarding", authenticateToken, verifyEmpresaContext, require("./routes/onboarding"));
 app.use("/api/reports", authenticateToken, verifyEmpresaContext, require("./routes/reports"));
+app.use("/api/fondos-acumulados", authenticateToken, verifyEmpresaContext, require("./routes/fondosAcumulados"));
 
 // Solo levantamos el servidor HTTP en entornos que no sean testing
 // En tests, Supertest crea su propio servidor efímero desde el objeto `app`

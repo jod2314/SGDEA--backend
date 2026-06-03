@@ -23,3 +23,4 @@ Registro continuo de hitos, commits y eventos del flujo de orquestación.
 | 2026-06-02 21:56 | 🚀 Configuración | Servir estáticos en /uploads y agregar endpoint POST /documentos/upload-imagen | - |
 | 2026-06-02 21:58 | ⚙️ Lógica de Negocio | Aprobaciones de jefes en transferencias/disposición y paso de fondos acumulados | - |
 | 2026-06-02 22:03 | [OK] Gate de testing | Sintaxis JS + Jest OK - commit autorizado | - |
+| 2026-06-02 22:11 | [OK] Gate de testing | Sintaxis JS + Jest OK - commit autorizado | - |
