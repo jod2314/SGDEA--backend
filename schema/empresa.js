@@ -100,6 +100,9 @@ const EmpresaSchema = new Mongoose.Schema({
       right: { type: String, default: "2.5cm" },
     },
   },
+  configuracionSGD: {
+    requiereAutorizacionJefe: { type: Boolean, default: true }
+  },
   onboardingCompleted: {
     type: Boolean,
     default: false,

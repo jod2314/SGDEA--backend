@@ -44,6 +44,8 @@ async function guardarRespuestasYPasar(empresaId, paso, respuestas) {
     wizard.estadoActual = 'POLITICA_DOCUMENTAL';
   } else if (wizard.estadoActual === 'POLITICA_DOCUMENTAL' && paso === 'PGD') {
     wizard.estadoActual = 'PGD';
+  } else if (wizard.estadoActual === 'PGD' && paso === 'FONDOS') {
+    wizard.estadoActual = 'COMPLETO';
   }
   
   wizard.progreso = PROGRESO_PASOS[wizard.estadoActual];

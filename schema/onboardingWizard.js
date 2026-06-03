@@ -24,6 +24,7 @@ const OnboardingWizardSchema = new mongoose.Schema({
     comite: mongoose.Schema.Types.Mixed,
     politica: mongoose.Schema.Types.Mixed,
     pgd: mongoose.Schema.Types.Mixed,
+    fondos: mongoose.Schema.Types.Mixed,
   },
   documentosGenerados: [{
     tipo: String, // ACTA_COMITE, POLITICA, PGD

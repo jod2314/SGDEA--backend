@@ -7,6 +7,14 @@ const authenticateToken = require("./auth/authenticateToken");
 const verifyEmpresaContext = require("./middleware/verifyEmpresaContext");
 const log = require("./lib/trace");
 require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
+
+// Asegurar existencia del directorio de uploads para imágenes locales
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 
 const allowedOrigins = [
   process.env.CORS_ORIGIN,
@@ -42,6 +50,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const port = process.env.PORT || 3000;
 

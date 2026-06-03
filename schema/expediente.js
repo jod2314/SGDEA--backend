@@ -52,6 +52,14 @@ const ExpedienteSchema = new mongoose.Schema({
   responsableId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+  },
+  ubicacionFisica: {
+    seccion: { type: String, default: "" },
+    bloque: { type: String, default: "" },
+    estante: { type: String, default: "" },
+    peldano: { type: String, default: "" },
+    caja: { type: String, default: "" },
+    carpeta: { type: String, default: "" }
   }
 }, { timestamps: true });
 

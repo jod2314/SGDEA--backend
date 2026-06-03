@@ -1,6 +1,9 @@
 const { create } = require('xmlbuilder2');
 const crypto = require('crypto');
 const HistorialDocumento = require('../schema/historialDocumento');
+const Empresa = require('../schema/empresa');
+const Dependencia = require('../schema/dependencia');
+const Expediente = require('../schema/expediente');
 
 /**
  * Calcula un HMAC (Sello Electrónico de Tiempo/Integridad) para el contenido del XML.
@@ -69,7 +72,26 @@ async function generarIndiceElectronicoXML(expediente) {
   return root.end({ prettyPrint: true });
 }
 
+async function validarAutorizacionJefe(empresaId, expedientesIds, usuarioId, usuarioRole) {
+  const empresa = await Empresa.findById(empresaId);
+  if (!empresa?.configuracionSGD?.requiereAutorizacionJefe) {
+    return true; // No requiere autorización si la bandera está desactivada
+  }
+
+  const expedientesData = await Expediente.find({ _id: { $in: expedientesIds }, empresaId });
+  const dependenciasIds = [...new Set(expedientesData.map(e => e.dependenciaId.toString()))];
+  
+  const dependencias = await Dependencia.find({ _id: { $in: dependenciasIds }, empresaId });
+  const jefesIds = dependencias.map(d => d.jefeDependenciaId?.toString()).filter(Boolean);
+
+  const esJefe = jefesIds.includes(usuarioId);
+  const esAdmin = usuarioRole === 'admin';
+
+  return esJefe || esAdmin;
+}
+
 module.exports = {
   generarIndiceElectronicoXML,
-  firmarIndiceXML
+  firmarIndiceXML,
+  validarAutorizacionJefe
 };

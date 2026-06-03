@@ -1,6 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const { z } = require("zod");
+const multer = require("multer");
+const path = require("path");
+
+// Configuración de almacenamiento local para imágenes
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "../uploads"));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Límite de 5MB por imagen
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png|gif|webp/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif, webp)"));
+  }
+});
+
 const Plantilla = require("../schema/plantilla");
 const Entidad = require("../schema/entidad");
 const Empresa = require("../schema/empresa");
@@ -153,6 +181,32 @@ router.get("/historial", async (req, res) => {
     }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al obtener historial" }));
+  }
+});
+ 
+// Endpoint de carga de imágenes para Tiptap
+router.post("/upload-imagen", upload.single("imagen"), async (req, res) => {
+  const empresaId = req.empresaContext.id;
+  try {
+    if (!req.file) {
+      return res.status(400).json(jsonResponse(400, { error: "No se proporcionó ninguna imagen" }));
+    }
+
+    const host = req.get("host");
+    const protocol = req.protocol;
+    const urlImagen = `${protocol}://${host}/uploads/${req.file.filename}`;
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'SUBIR_IMAGEN_PLANTILLA',
+      detalles: { filename: req.file.filename, size: req.file.size }
+    });
+
+    res.json(jsonResponse(200, { url: urlImagen }));
+  } catch (error) {
+    console.error("ERROR SUBIDA IMAGEN:", error);
+    res.status(500).json(jsonResponse(500, { error: "Fallo al subir imagen" }));
   }
 });
 

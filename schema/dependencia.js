@@ -25,6 +25,11 @@ const DependenciaSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  jefeDependenciaId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
   estado: {
     type: String,
     enum: ['activo', 'inactivo'],
