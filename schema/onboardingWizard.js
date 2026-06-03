@@ -19,17 +19,33 @@ const OnboardingWizardSchema = new mongoose.Schema({
     ],
     default: 'INICIO',
   },
+  pasoActual: {
+    type: Number,
+    default: 0,
+  },
   respuestas: {
-    diagnostico: mongoose.Schema.Types.Mixed,
-    comite: mongoose.Schema.Types.Mixed,
-    politica: mongoose.Schema.Types.Mixed,
-    pgd: mongoose.Schema.Types.Mixed,
-    fondos: mongoose.Schema.Types.Mixed,
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {},
   },
   documentosGenerados: [{
     tipo: String, // ACTA_COMITE, POLITICA, PGD
     documentoId: { type: mongoose.Schema.Types.ObjectId, ref: 'HistorialDocumento' },
     fechaGeneracion: { type: Date, default: Date.now }
+  }],
+  tareasChecklist: [{
+    titulo: {
+      type: String,
+      required: true,
+    },
+    moduloDestino: {
+      type: String,
+      default: "",
+    },
+    completada: {
+      type: Boolean,
+      default: false,
+    }
   }],
   progreso: {
     type: Number,
@@ -38,3 +54,4 @@ const OnboardingWizardSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('OnboardingWizard', OnboardingWizardSchema);
+

@@ -1,10 +1,11 @@
+const mongoose = require('mongoose');
 const OnboardingWizard = require('../schema/onboardingWizard');
 const { generarPDFDocumental } = require('./generadorDocumentos');
 const HistorialDocumento = require('../schema/historialDocumento');
 const Empresa = require('../schema/empresa');
 
 /**
- * Mapeo de estados y su porcentaje de progreso.
+ * Mapeo de estados y su porcentaje de progreso por defecto.
  */
 const PROGRESO_PASOS = {
   'INICIO': 0,
@@ -28,27 +29,231 @@ async function obtenerEstadoWizard(empresaId) {
 }
 
 /**
- * Guarda las respuestas de un paso y avanza el estado.
+ * Acceso seguro a las respuestas del Map de Mongoose u objeto plano de JS
+ */
+function obtenerRespuesta(respuestas, paso) {
+  if (!respuestas) return undefined;
+  return typeof respuestas.get === 'function' ? respuestas.get(String(paso)) : respuestas[String(paso)];
+}
+
+/**
+ * Verifica si existe una respuesta guardada para un paso de forma segura
+ */
+function tieneRespuesta(respuestas, paso) {
+  if (!respuestas) return false;
+  return typeof respuestas.has === 'function' ? respuestas.has(String(paso)) : respuestas[String(paso)] !== undefined;
+}
+
+/**
+ * Calcula el progreso de madurez del onboarding sumando componentes reglamentarios.
+ */
+async function calcularProgresoYMadurez(wizard, empresaId) {
+  let progresoRespuestas = 0;
+  // 5% por cada respuesta de pasos 0 al 7 almacenada en el Map (max 40%)
+  for (let i = 0; i <= 7; i++) {
+    if (tieneRespuesta(wizard.respuestas, i)) {
+      progresoRespuestas += 5;
+    }
+  }
+  progresoRespuestas = Math.min(progresoRespuestas, 40);
+
+  // 15% si se ha generado el acta de comité ('ACTA_COMITE') o si la respuesta en paso 3 indica que ya existe ('si')
+  const haGeneradoActa = wizard.documentosGenerados && wizard.documentosGenerados.some(doc => doc.tipo === 'ACTA_COMITE');
+  const respuestasPaso3 = obtenerRespuesta(wizard.respuestas, '3');
+  const comiteExisteEnPaso3 = respuestasPaso3 && (
+    respuestasPaso3.tieneComite === 'si' ||
+    respuestasPaso3.comiteExiste === 'si' ||
+    Object.values(respuestasPaso3).includes('si')
+  );
+  const bonoComite = (haGeneradoActa || comiteExisteEnPaso3) ? 15 : 0;
+
+  // 20% si hay alguna TRD registrada y vigente en la colección 'TablaRetencionDocumental'
+  let bonoTRD = 0;
+  try {
+    let TablaRetencion;
+    try {
+      TablaRetencion = mongoose.model('TablaRetencionDocumental');
+    } catch (e) {
+      TablaRetencion = require('../schema/tablaRetencionDocumental');
+    }
+    if (TablaRetencion) {
+      const countTRD = await TablaRetencion.countDocuments({ empresaId, estado: 'vigente' });
+      bonoTRD = countTRD > 0 ? 20 : 0;
+    }
+  } catch (err) {
+    console.error("Error al contar TRD para madurez:", err);
+  }
+
+  // 10% si respondió 'no' a fondos acumulados o si hay fondos creados en 'FondoAcumulado'
+  let bonoFondos = 0;
+  try {
+    const respuestasPaso1 = obtenerRespuesta(wizard.respuestas, '1');
+    const respondioNoFondos = respuestasPaso1 && (
+      respuestasPaso1.poseeFondos === 'no' ||
+      respuestasPaso1.tieneFondos === 'no' ||
+      Object.values(respuestasPaso1).includes('no')
+    );
+    let FondoAcumulado;
+    try {
+      FondoAcumulado = mongoose.model('FondoAcumulado');
+    } catch (e) {
+      FondoAcumulado = require('../schema/fondoAcumulado');
+    }
+    let countFondos = 0;
+    if (FondoAcumulado) {
+      countFondos = await FondoAcumulado.countDocuments({ empresaId });
+    }
+    bonoFondos = (respondioNoFondos || countFondos > 0) ? 10 : 0;
+  } catch (err) {
+    console.error("Error al contar fondos para madurez:", err);
+  }
+
+  // 15% si tiene manuales generados o seleccionados en paso 5
+  const respuestasPaso5 = obtenerRespuesta(wizard.respuestas, '5');
+  let tieneManualesPaso5 = false;
+  if (respuestasPaso5) {
+    if (Array.isArray(respuestasPaso5)) {
+      tieneManualesPaso5 = respuestasPaso5.length > 0;
+    } else if (typeof respuestasPaso5 === 'object') {
+      if (Array.isArray(respuestasPaso5.seleccionados) && respuestasPaso5.seleccionados.length > 0) {
+        tieneManualesPaso5 = true;
+      } else if (Array.isArray(respuestasPaso5.existentes) && respuestasPaso5.existentes.length > 0) {
+        tieneManualesPaso5 = true;
+      } else {
+        for (const [key, val] of Object.entries(respuestasPaso5)) {
+          if (key.toLowerCase().includes('manual') && (val === true || val === 'si' || val === 'existente')) {
+            tieneManualesPaso5 = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  const haGeneradoManual = wizard.documentosGenerados && wizard.documentosGenerados.some(doc => doc.tipo && doc.tipo.includes('MANUAL'));
+  const bonoManuales = (tieneManualesPaso5 || haGeneradoManual) ? 15 : 0;
+
+  return Math.min(progresoRespuestas + bonoComite + bonoTRD + bonoFondos + bonoManuales, 100);
+}
+
+/**
+ * Guarda las respuestas de un paso y avanza el estado del onboarding.
  */
 async function guardarRespuestasYPasar(empresaId, paso, respuestas) {
   const wizard = await obtenerEstadoWizard(empresaId);
-  
-  wizard.respuestas[paso.toLowerCase()] = respuestas;
-  
-  // Lógica de transición de estados
-  if (wizard.estadoActual === 'INICIO' && paso === 'DIAGNOSTICO') {
-    wizard.estadoActual = 'DIAGNOSTICO_MGDA';
-  } else if (wizard.estadoActual === 'DIAGNOSTICO_MGDA' && paso === 'COMITE') {
-    wizard.estadoActual = 'COMITE_ARCHIVO';
-  } else if (wizard.estadoActual === 'COMITE_ARCHIVO' && paso === 'POLITICA') {
-    wizard.estadoActual = 'POLITICA_DOCUMENTAL';
-  } else if (wizard.estadoActual === 'POLITICA_DOCUMENTAL' && paso === 'PGD') {
-    wizard.estadoActual = 'PGD';
-  } else if (wizard.estadoActual === 'PGD' && paso === 'FONDOS') {
-    wizard.estadoActual = 'COMPLETO';
+  const pasoKey = String(paso);
+  const pasoNum = Number(paso);
+
+  // Guardar respuestas en el Map respuestas del wizard
+  wizard.respuestas.set(pasoKey, respuestas);
+
+  // Realizar la transición lógica de 'wizard.pasoActual'
+  if (wizard.pasoActual === 0) {
+    wizard.pasoActual = 1;
+  } else if (wizard.pasoActual === 1) {
+    if (respuestas && (respuestas.poseeFondos === 'no' || respuestas.tieneFondos === 'no')) {
+      wizard.pasoActual = 3; // salta el paso 2
+    } else {
+      wizard.pasoActual = 2;
+    }
+  } else {
+    wizard.pasoActual = wizard.pasoActual + 1;
   }
-  
-  wizard.progreso = PROGRESO_PASOS[wizard.estadoActual];
+
+  // Mapear el pasoActual a los estados visuales permitidos en el enum para compatibilidad con el front
+  const mapeoEstados = {
+    0: 'INICIO',
+    1: 'DIAGNOSTICO_MGDA',
+    2: 'COMITE_ARCHIVO',
+    3: 'POLITICA_DOCUMENTAL',
+    4: 'PGD'
+  };
+  if (wizard.pasoActual in mapeoEstados) {
+    wizard.estadoActual = mapeoEstados[wizard.pasoActual];
+  }
+
+  // Función auxiliar para agregar tareas de forma única
+  function agregarTareaUnica(titulo, moduloDestino) {
+    if (!wizard.tareasChecklist) {
+      wizard.tareasChecklist = [];
+    }
+    const existe = wizard.tareasChecklist.some(t => t.titulo === titulo);
+    if (!existe) {
+      wizard.tareasChecklist.push({
+        titulo,
+        moduloDestino: moduloDestino || "",
+        completada: false
+      });
+    }
+  }
+
+  // Generar dinámicamente las tareas de 'tareasChecklist' según el paso y las respuestas
+  if (pasoNum === 1) {
+    if (respuestas && (respuestas.poseeFondos === 'si' || respuestas.tieneFondos === 'si')) {
+      agregarTareaUnica(
+        "Realizar inventario preliminar de fondos acumulados", 
+        "/fondos-acumulados"
+      );
+    }
+  } else if (pasoNum === 3) {
+    if (respuestas && (respuestas.tieneComite === 'no' || respuestas.tieneComite === 'verbal')) {
+      agregarTareaUnica(
+        "Aprobar acta institucional del Comité de Archivo", 
+        "/estructura-organizacional"
+      );
+    }
+  } else if (pasoNum === 4) {
+    const opcionTabla = respuestas ? (respuestas.tipoTabla || respuestas.tabla || respuestas.seleccion || respuestas.opcion) : null;
+    const esTrdOAmbos = opcionTabla === 'trd' || opcionTabla === 'ambos' || Object.values(respuestas || {}).includes('trd') || Object.values(respuestas || {}).includes('ambos');
+    const esTvd = opcionTabla === 'tvd' || Object.values(respuestas || {}).includes('tvd');
+
+    if (esTrdOAmbos) {
+      agregarTareaUnica(
+        "Construir y aprobar la Tabla de Retención Documental (TRD)", 
+        "/configuracion-trd"
+      );
+    } else if (esTvd) {
+      agregarTareaUnica(
+        "Construir y aprobar la Tabla de Valoración Documental (TVD)", 
+        "/configuracion-trd"
+      );
+    }
+  } else if (pasoNum === 5) {
+    let manualesFaltantes = [];
+    if (Array.isArray(respuestas)) {
+      manualesFaltantes = respuestas;
+    } else if (respuestas && typeof respuestas === 'object') {
+      if (Array.isArray(respuestas.manualesFaltantes)) {
+        manualesFaltantes = respuestas.manualesFaltantes;
+      } else if (Array.isArray(respuestas.faltantes)) {
+        manualesFaltantes = respuestas.faltantes;
+      } else if (Array.isArray(respuestas.manuales)) {
+        manualesFaltantes = respuestas.manuales.filter(m => m.faltante || m.estado === 'faltante').map(m => m.nombre || m);
+      } else {
+        for (const [key, val] of Object.entries(respuestas)) {
+          if (key.toLowerCase().includes('manual')) {
+            if (val === false || val === 'no' || val === 'faltante') {
+              const nombreManual = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+              manualesFaltantes.push(nombreManual);
+            }
+          }
+        }
+      }
+    }
+    
+    manualesFaltantes.forEach(manual => {
+      agregarTareaUnica(`Elaborar e implementar: ${manual}`, "/manuales");
+    });
+  }
+
+  // Calcular el progreso de madurez del onboarding
+  wizard.progreso = await calcularProgresoYMadurez(wizard, empresaId);
+
+  // Si pasoActual supera 7, cambiar 'wizard.estadoActual' a 'COMPLETO' y actualizar 'onboardingCompleted: true' en Empresa
+  if (wizard.pasoActual > 7) {
+    wizard.estadoActual = 'COMPLETO';
+    await Empresa.findByIdAndUpdate(empresaId, { onboardingCompleted: true });
+  }
+
   await wizard.save();
   return wizard;
 }
@@ -66,7 +271,7 @@ async function generarDocumentoFundacional(empresaId, tipo, usuarioId) {
   let nombreDocumento = "";
 
   if (tipo === 'ACTA_COMITE') {
-    const r = wizard.respuestas.comite;
+    const r = obtenerRespuesta(wizard.respuestas, '3') || {};
     nombreDocumento = "Acta de Constitución del Comité de Archivo";
     htmlContent = `
       <h1 class="text-center">ACTA DE CONSTITUCIÓN DEL COMITÉ DE ARCHIVO</h1>
@@ -81,7 +286,7 @@ async function generarDocumentoFundacional(empresaId, tipo, usuarioId) {
       <p>${r.funciones || 'Las establecidas en el Decreto 1080 de 2015.'}</p>
     `;
   } else if (tipo === 'POLITICA') {
-    const r = wizard.respuestas.politica;
+    const r = obtenerRespuesta(wizard.respuestas, '5') || {};
     nombreDocumento = "Política de Gestión Documental";
     htmlContent = `
       <h1 class="text-center">POLÍTICA DE GESTIÓN DOCUMENTAL</h1>
