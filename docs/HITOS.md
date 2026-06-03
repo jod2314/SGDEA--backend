@@ -17,3 +17,4 @@ Registro continuo de hitos, commits y eventos del flujo de orquestación.
 > - 🧪 Resultado del gate de testing
 > - 🗄️ Cambio de esquema MongoDB
 | 2026-05-20 22:28 | ADVERTENCIA Gate de testing | Sin tests configurados - commit permitido con advertencia | - |
+| 2026-06-02 21:17 | [OK] Gate de testing | Sintaxis JS + Jest OK - commit autorizado | - |

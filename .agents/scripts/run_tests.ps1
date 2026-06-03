@@ -18,67 +18,49 @@ Write-Host "=======================================" -ForegroundColor Cyan
 
 Set-Location $repoRoot
 
-# -- 1. Verificar si hay script de test real ---------------------
-$pkg = Get-Content "package.json" | ConvertFrom-Json
-$testScript = $pkg.scripts.test
-
-if (-not $testScript -or $testScript -like "echo*") {
-    Write-Host ""
-    Write-Host "[ADVERTENCIA] No hay tests configurados en package.json" -ForegroundColor Yellow
-    Write-Host "   Instala Jest + Supertest y configura el script 'test' para activar el gate." -ForegroundColor Yellow
-    Write-Host "   El commit procedera SIN validacion de tests." -ForegroundColor Yellow
-
-    $entrada = "| $fecha | ADVERTENCIA Gate de testing | Sin tests configurados - commit permitido con advertencia | - |"
-    Add-Content -Path $hitosPath -Value $entrada -ErrorAction SilentlyContinue
-
-    Write-Host ""
-    Write-Host "[OK] Gate superado (modo permisivo - sin tests)" -ForegroundColor Green
-    exit 0
-}
-
-# -- 2. Verificar sintaxis JavaScript (smoke test) ----------------
+# -- 1. Verificar sintaxis JavaScript (smoke test rapido) ----------
 Write-Host ""
-Write-Host "[JS] Verificando sintaxis JavaScript..." -ForegroundColor Blue
-$jsFiles = Get-ChildItem -Path $repoRoot -Include "*.js" -Recurse |
-           Where-Object { $_.FullName -notmatch "node_modules" } |
-           Select-Object -First 20
-
+Write-Host "[JS] Verificando sintaxis de archivos clave..." -ForegroundColor Blue
+$archivosCore = @("index.js") + (Get-ChildItem "routes","services","lib" -Filter "*.js" -ErrorAction SilentlyContinue | Select-Object -First 10 | ForEach-Object { $_.FullName })
 $syntaxErrors = 0
-foreach ($file in $jsFiles) {
-    node --check $file.FullName 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "   [ERROR] Error de sintaxis: $($file.Name)" -ForegroundColor Red
-        $syntaxErrors++
+foreach ($archivo in $archivosCore) {
+    if (Test-Path $archivo) {
+        node --check $archivo 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "   [ERROR] Sintaxis invalida: $archivo" -ForegroundColor Red
+            $syntaxErrors++
+        }
     }
 }
-
 if ($syntaxErrors -gt 0) {
-    Write-Host "   [ERROR] $syntaxErrors archivo(s) con errores de sintaxis" -ForegroundColor Red
+    Write-Host "   [ERROR] $syntaxErrors error(es) de sintaxis encontrados" -ForegroundColor Red
     $exitCode = 1
 } else {
     Write-Host "   [OK] Sintaxis JavaScript OK" -ForegroundColor Green
 }
 
-# -- 3. Ejecutar tests -----------------------------------------
+# -- 2. Ejecutar tests Jest ----------------------------------------
 if ($exitCode -eq 0) {
     Write-Host ""
-    Write-Host "[RUN] Ejecutando tests..." -ForegroundColor Blue
-    npm test 2>&1
+    $oldErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    npm test 2>&1 | Tee-Object -Variable testOutput
+    $ErrorActionPreference = $oldErrorPreference
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[FALLO] Tests fallaron. Bloqueando commit." -ForegroundColor Red
         $exitCode = 1
     } else {
-        Write-Host "   [OK] Tests OK" -ForegroundColor Green
+        Write-Host "   [OK] Todos los tests pasaron" -ForegroundColor Green
     }
 }
 
-# -- 4. Registrar resultado en HITOS.md -----------------------
+# -- 3. Registrar resultado en HITOS.md ----------------------------
 if ($exitCode -eq 0) {
-    $entrada = "| $fecha | [OK] Gate de testing | Tests pasaron - commit autorizado | - |"
+    $entrada = "| $fecha | [OK] Gate de testing | Sintaxis JS + Jest OK - commit autorizado | - |"
     Write-Host ""
     Write-Host "[OK] Gate superado. Procediendo al commit." -ForegroundColor Green
 } else {
-    $entrada = "| $fecha | [FALLO] Gate de testing | Tests fallaron - commit bloqueado | - |"
+    $entrada = "| $fecha | [FALLO] Gate de testing | Gate fallido - commit bloqueado | - |"
     Write-Host ""
     Write-Host "[ERROR] Gate fallido. Ejecuta rollback.ps1 para revertir cambios." -ForegroundColor Red
 }

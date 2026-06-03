@@ -7,6 +7,8 @@ const Empresa = require("../schema/empresa");
 const Rol = require("../schema/rol");
 const User = require("../schema/user");
 const UsuarioEmpresa = require("../schema/usuarioEmpresa");
+const { registrarAuditoria } = require("../lib/audit");
+
 
 router.post("/", async function (req, res, next) {
   const { username, password, name, identification } = req.body;
@@ -44,8 +46,8 @@ router.post("/", async function (req, res, next) {
 
     // 3. Crear el Espacio Personal para el usuario usando su identificación como NIT
     const personalSpace = new Empresa({ 
-      name: `Espacio Personal de ${name}`, 
-      nit: identification, // La identificación del usuario es el NIT de su espacio personal
+      razonSocial: `Espacio Personal de ${name}`, // campo requerido en el schema de Empresa
+      nit: identification,  // La identificación del usuario es el NIT de su espacio personal
       isPersonal: true 
     });
     await personalSpace.save();

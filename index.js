@@ -45,11 +45,14 @@ app.use(express.json());
 
 const port = process.env.PORT || 3000;
 
-main().catch((err) => console.log(err));
+// En entorno test, la conexión la gestiona MongoMemoryServer (tests/setup.js)
+// para evitar el conflicto "Can't call openUri() on an active connection"
+if (process.env.NODE_ENV !== 'test') {
+  main().catch((err) => console.log(err));
+}
 
 async function main() {
   await mongoose.connect(process.env.DB_CONNECTION_STRING);
-
   console.log("Conectado a la base de datos");
 }
 
@@ -101,8 +104,12 @@ app.use("/api/disposicion", authenticateToken, verifyEmpresaContext, require("./
 app.use("/api/onboarding", authenticateToken, verifyEmpresaContext, require("./routes/onboarding"));
 app.use("/api/reports", authenticateToken, verifyEmpresaContext, require("./routes/reports"));
 
-app.listen(port, () => {
-  console.log(`Server is up on port ${port} - Deploy verification: ${new Date().toISOString()}`);
-});
+// Solo levantamos el servidor HTTP en entornos que no sean testing
+// En tests, Supertest crea su propio servidor efímero desde el objeto `app`
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Server is up on port ${port} - Deploy verification: ${new Date().toISOString()}`);
+  });
+}
 
 module.exports = app;

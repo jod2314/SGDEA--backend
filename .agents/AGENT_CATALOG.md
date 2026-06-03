@@ -5,6 +5,7 @@ Registro de todos los subagentes disponibles o descargados para el repo backend.
 | Agente | Especialidad | Scope Permitido | Estado | Fecha |
 |--------|-------------|-----------------|--------|-------|
 | `self` (heredado) | Full-Stack general | Todos los archivos | ✅ Activo | Sistema |
+| `code-review-backend` | Revisión Node/Express — convenciones SGDEA | `routes/`, `services/`, `schema/` (lectura), `docs/HITOS.md` | ✅ Activo | 2026-05-20 |
 
 ---
 
