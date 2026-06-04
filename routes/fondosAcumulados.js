@@ -3,10 +3,16 @@ const router = express.Router();
 const FondoAcumulado = require("../schema/fondoAcumulado");
 const { jsonResponse } = require("../lib/jsonResponse");
 const { registrarAuditoria } = require("../lib/audit");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
+const { procesarFuidMasivo, exportarFuidCsv } = require("../services/fondosAcumuladosService");
 
 // Listar todos los fondos acumulados de la empresa
 router.get("/", async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
   try {
     const fondos = await FondoAcumulado.find({ empresaId }).sort({ createdAt: -1 });
     res.json(jsonResponse(200, { fondos }));
@@ -17,7 +23,10 @@ router.get("/", async (req, res) => {
 
 // Crear un nuevo registro de fondo acumulado
 router.post("/", async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
   const { codigoInventario, seccion, subseccion, asunto, fechasExtremas, soporte, volumen, estadoConservacion } = req.body;
 
   if (!codigoInventario || !seccion || !asunto) {
@@ -55,7 +64,10 @@ router.post("/", async (req, res) => {
 
 // Eliminar un registro de fondo acumulado
 router.delete("/:id", async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
   try {
     const fondo = await FondoAcumulado.findOneAndDelete({ _id: req.params.id, empresaId });
     if (!fondo) {
@@ -78,27 +90,12 @@ router.delete("/:id", async (req, res) => {
 
 // Exportar en formato FUID (CSV)
 router.get("/exportar-fuid", async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
   try {
-    const fondos = await FondoAcumulado.find({ empresaId }).sort({ codigoInventario: 1 });
-
-    // Cabecera oficial del FUID simplificado para CSV
-    let csvContent = "\uFEFF"; // BOM para soportar tildes en Excel
-    csvContent += "Codigo Inventario,Seccion,Subseccion,Asunto / Serie,Fecha Inicial,Fecha Final,Soporte,Cajas,Carpetas,Folios,Estado de Conservacion\n";
-
-    fondos.forEach(f => {
-      const fechaIni = f.fechasExtremas?.inicial ? new Date(f.fechasExtremas.inicial).toISOString().split('T')[0] : "";
-      const fechaFin = f.fechasExtremas?.final ? new Date(f.fechasExtremas.final).toISOString().split('T')[0] : "";
-      
-      // Escapar comas en strings
-      const escape = (text) => {
-        if (!text) return "";
-        const formatted = text.replace(/"/g, '""');
-        return formatted.includes(',') || formatted.includes('\n') ? `"${formatted}"` : formatted;
-      };
-
-      csvContent += `${escape(f.codigoInventario)},${escape(f.seccion)},${escape(f.subseccion)},${escape(f.asunto)},${fechaIni},${fechaFin},${f.soporte || "FISICO"},${f.volumen?.cajas || 0},${f.volumen?.carpetas || 0},${f.volumen?.folios || 0},${f.estadoConservacion || "BUENO"}\n`;
-    });
+    const csvContent = await exportarFuidCsv(empresaId);
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=FUID_Historico_Fondos_Acumulados.csv");
@@ -108,4 +105,47 @@ router.get("/exportar-fuid", async (req, res) => {
   }
 });
 
+
+// Importar masivamente fondos acumulados (XLSX, XLS, CSV)
+router.post("/importar-masivo", upload.single("archivo"), async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
+
+  if (!req.file) {
+    return res.status(400).json(jsonResponse(400, { error: "No se ha subido ningún archivo" }));
+  }
+
+  try {
+    const resultado = await procesarFuidMasivo(req.file.buffer, empresaId);
+
+    // Registrar auditoría con el total importado
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: "IMPORTAR_MASIVO_FUID",
+      detalles: { 
+        totalProcesados: resultado.totalProcesados, 
+        totalGuardados: resultado.totalGuardados, 
+        totalErrores: resultado.errores.length 
+      },
+      req
+    });
+
+    res.status(200).json(jsonResponse(200, {
+      message: `Carga masiva finalizada. Guardados: ${resultado.totalGuardados}, Errores/Advertencias: ${resultado.errores.length}`,
+      totalProcesados: resultado.totalProcesados,
+      totalGuardados: resultado.totalGuardados,
+      errores: resultado.errores
+    }));
+
+  } catch (error) {
+    console.error("Error en carga masiva de FUID:", error);
+    res.status(500).json(jsonResponse(500, { error: error.message || "Error interno al procesar el archivo masivo" }));
+  }
+});
+
 module.exports = router;
+
+

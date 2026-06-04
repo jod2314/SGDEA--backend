@@ -9,6 +9,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ### Añadido
 - Nuevo esquema `FondoAcumulado` para documentar inventarios históricos de fondos acumulados preexistentes.
+- Procesamiento masivo de fondos acumulados (FUID) dual XLSX/CSV en `routes/fondosAcumulados.js` y `services/fondosAcumuladosService.js` con validación y reporte de errores por fila.
+- Endpoint de recomendación inteligente de series TRD/TVD según sector en `routes/archivistica.js` mapeando BANTER.
+- Endpoints de generación dinámica y oficialización de manuales en `routes/onboarding.js` y `services/onboardingService.js` con conversión a PDF/A inmutable.
 - Campo `ubicacionFisica` (seccion, bloque, estante, peldano, caja, carpeta) en el esquema `Expediente` para control físico.
 - Campo `jefeDependenciaId` en el esquema `Dependencia` para la delegación de autorizaciones.
 - Ruta `POST /upload-imagen` con multer para la carga local de imágenes del editor en `./uploads`.

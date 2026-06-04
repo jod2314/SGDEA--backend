@@ -32,6 +32,55 @@ router.get("/banter/buscar", async (req, res) => {
   }
 });
 
+// Obtener sugerencias de series del BANTER por sector comercial
+router.get("/banter/sugerencias-sector", async (req, res) => {
+  const { sector } = req.query;
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
+
+  if (!sector) {
+    return res.status(400).json(jsonResponse(400, { error: "El parámetro de sector es requerido" }));
+  }
+
+  // Definir las palabras clave de búsqueda por sector comercial
+  const MAPEO_SECTORES = {
+    SALUD: ["HISTORIA CLINICA", "HISTORIAS CLINICAS", "SALUD", "MEDIC", "PACIENTE", "REGISTRO MEDICO", "CONSULTA", "FACTURACION", "EVALUACION MEDICA"],
+    EDUCACION: ["HISTORIA ACADEMICA", "HISTORIAS ACADEMICAS", "ESTUDIANTE", "GRAD", "CURRICULO", "DOCENTE", "CALIFICACION", "MATRICULA", "EVALUACION ACADEMICA"],
+    CONSTRUCCION: ["OBRA", "PLANO", "LICENCIA", "PROYECTO", "INTERVENTOR", "CONSTRUCCION", "INGENIERIA", "BITACORA"],
+    FINANCIERO: ["IMPUESTOS", "ESTADOS FINANCIEROS", "BALANCE", "LIBROS CONTABLES", "CONTABILIDAD", "BANCOS", "FACTURA", "CAJA", "PRESUPUESTO", "CARTERA"],
+    TECNOLOGIA: ["SOPORTE", "DESARROLLO", "SISTEMAS", "SOFTWARE", "MANTENIMIENTO", "SERVIDOR", "SEGURIDAD", "LICENCIAMIENTO"]
+  };
+
+  const sectorNormalizado = sector.toUpperCase().trim();
+  const palabrasClave = MAPEO_SECTORES[sectorNormalizado];
+
+  if (!palabrasClave) {
+    return res.status(400).json(jsonResponse(400, { error: `Sector comercial '${sector}' no soportado.` }));
+  }
+
+  try {
+    // Buscar en BanterMaster las series que coincidan en el nombre o sean transversales
+    const query = {
+      nivel: "SERIE",
+      $or: [
+        { transversal: true },
+        ...palabrasClave.map(palabra => ({
+          nombre: { $regex: palabra, $options: "i" }
+        }))
+      ]
+    };
+
+    const seriesSugeridas = await BanterMaster.find(query).sort({ codigo: 1 });
+    res.json(jsonResponse(200, { sugerencias: seriesSugeridas }));
+  } catch (error) {
+    console.error("Error al buscar sugerencias sectoriales de BANTER:", error);
+    res.status(500).json(jsonResponse(500, { error: "Error al obtener sugerencias de series" }));
+  }
+});
+
+
 // Importar entrada de BANTER al CCD de la empresa (Serie y opcionalmente sus subseries)
 router.post("/banter/importar", async (req, res) => {
   const { banterId, incluirSubseries } = req.body;

@@ -3,6 +3,9 @@ const OnboardingWizard = require('../schema/onboardingWizard');
 const { generarPDFDocumental } = require('./generadorDocumentos');
 const HistorialDocumento = require('../schema/historialDocumento');
 const Empresa = require('../schema/empresa');
+const fs = require('fs');
+const path = require('path');
+
 
 /**
  * Mapeo de estados y su porcentaje de progreso por defecto.
@@ -327,8 +330,113 @@ async function generarDocumentoFundacional(empresaId, tipo, usuarioId) {
   return buffer;
 }
 
+/**
+ * Carga el borrador HTML de un manual e inyecta dinámicamente las variables del onboarding.
+
+ */
+async function obtenerPlantillaManual(empresaId, tipo) {
+  const wizard = await OnboardingWizard.findOne({ empresaId });
+  const empresa = await Empresa.findById(empresaId);
+  
+  if (!wizard) throw new Error('Wizard no iniciado');
+  if (!empresa) throw new Error('Empresa no encontrada');
+
+  const tipoNormalizado = tipo.toLowerCase().trim();
+  const filePath = path.join(__dirname, `../templates/manuales/${tipoNormalizado}.html`);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`La plantilla del manual tipo '${tipo}' no existe.`);
+  }
+
+  let htmlContent = fs.readFileSync(filePath, 'utf-8');
+
+  // Obtener respuestas de pasos específicos
+  const rPaso0 = obtenerRespuesta(wizard.respuestas, '0') || {};
+  const rPaso3 = obtenerRespuesta(wizard.respuestas, '3') || {};
+
+  // Mapeo de reemplazos de variables dinámicas
+  const reemplazos = {
+    '{{empresaNombre}}': empresa.razonSocial || rPaso0.nombreComercial || 'Empresa de Prueba',
+    '{{empresaNit}}': empresa.nit || rPaso0.nit || '000000000-0',
+    '{{presidenteComite}}': rPaso3.presidente || 'Presidente No Asignado',
+    '{{secretarioComite}}': rPaso3.secretario || 'Secretario No Asignado',
+    '{{responsableArchivo}}': rPaso3.responsableArchivo || 'Responsable de Archivo No Asignado',
+    '{{madurezMGDA}}': wizard.progreso || 0,
+    '{{fechaEmision}}': new Date().toLocaleDateString('es-CO'),
+    '{{anioActual}}': new Date().getFullYear().toString()
+  };
+
+  // Reemplazar todas las ocurrencias
+  for (const [variable, valor] of Object.entries(reemplazos)) {
+    const regex = new RegExp(variable.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+    htmlContent = htmlContent.replace(regex, valor);
+  }
+
+  return htmlContent;
+}
+
+/**
+ * Oficializa el borrador del manual editado en el editor Tiptap convirtiéndolo en un PDF inmutable y actualizando el checklist.
+ */
+async function oficializarManual(empresaId, tipo, htmlContent, usuarioId) {
+  const wizard = await OnboardingWizard.findOne({ empresaId });
+  const empresa = await Empresa.findById(empresaId);
+
+  if (!wizard) throw new Error('Wizard no iniciado');
+  if (!empresa) throw new Error('Empresa no encontrada');
+
+  const tipoDoc = tipo.toUpperCase().trim(); // MANUAL-GESTION o PGD
+  
+  // Generar PDF inmutable con hash
+  const dataContext = {
+    maestros: { membrete: { razonSocial: empresa.razonSocial } },
+    entidad: { ciudad: empresa.ciudad || 'Bogotá' },
+    documento: { fecha: new Date().toLocaleDateString('es-CO') }
+  };
+
+  const { buffer, hash } = await generarPDFDocumental(htmlContent, dataContext);
+
+  // Registrar en HistorialDocumento
+  const registroDoc = new HistorialDocumento({
+    plantillaId: null,
+    empresaId,
+    usuarioId,
+    datosUsados: wizard.respuestas,
+    hashIntegridad: hash,
+    numeroRadicado: `SISTEMA-${tipoDoc}-${new Date().getFullYear()}`,
+    tipoArchivo: 'PDF'
+  });
+  await registroDoc.save();
+
+  // Guardar en documentosGenerados del wizard
+  wizard.documentosGenerados.push({
+    tipo: `MANUAL_${tipoDoc}`,
+    documentoId: registroDoc._id
+  });
+
+  // Marcar la tarea del checklist de onboarding como completada en vivo
+  // Las tareas tienen nombres del tipo: "Elaborar e implementar: Manual De Gestion Documental"
+  const nombreBuscado = tipoDoc === 'MANUAL-GESTION' ? 'Manual de Gestión Documental' : 'Programa de Gestión Documental (PGD)';
+  if (wizard.tareasChecklist) {
+    wizard.tareasChecklist.forEach(t => {
+      if (t.titulo.toLowerCase().includes(nombreBuscado.toLowerCase())) {
+        t.completada = true;
+      }
+    });
+  }
+
+  // Recalcular progreso del wizard
+  wizard.progreso = await calcularProgresoYMadurez(wizard, empresaId);
+  await wizard.save();
+
+  return { wizard, buffer };
+}
+
 module.exports = {
   obtenerEstadoWizard,
   guardarRespuestasYPasar,
-  generarDocumentoFundacional
+  generarDocumentoFundacional,
+  obtenerPlantillaManual,
+  oficializarManual
 };
+

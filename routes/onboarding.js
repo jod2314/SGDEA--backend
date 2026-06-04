@@ -5,16 +5,19 @@ const { registrarAuditoria } = require("../lib/audit");
 const { 
   obtenerEstadoWizard, 
   guardarRespuestasYPasar, 
-  generarDocumentoFundacional 
+  generarDocumentoFundacional,
+  obtenerPlantillaManual,
+  oficializarManual
 } = require("../services/onboardingService");
+
 
 // Controladores y rutas del asistente de onboarding (asistente de configuración)
 
 // Obtener estado actual del wizard
 const handleGetState = async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
   if (!empresaId) {
-    return res.status(400).json(jsonResponse(400, { error: "Falta el encabezado X-Empresa-ID" }));
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
   }
 
   try {
@@ -27,9 +30,9 @@ const handleGetState = async (req, res) => {
 
 // Guardar respuestas de un paso y avanzar
 const handleAnswer = async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
   if (!empresaId) {
-    return res.status(400).json(jsonResponse(400, { error: "Falta el encabezado X-Empresa-ID" }));
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
   }
 
   const { paso, respuestas } = req.body;
@@ -65,9 +68,9 @@ router.post("/responder", handleAnswer);
 
 // Generar documento del asistente
 router.post("/generar/:tipo", async (req, res) => {
-  const empresaId = req.headers["x-empresa-id"];
+  const empresaId = req.empresaContext && req.empresaContext.id;
   if (!empresaId) {
-    return res.status(400).json(jsonResponse(400, { error: "Falta el encabezado X-Empresa-ID" }));
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
   }
 
   const { tipo } = req.params;
@@ -93,4 +96,53 @@ router.post("/generar/:tipo", async (req, res) => {
   }
 });
 
+// Obtener la plantilla de manual/política con variables inyectadas
+router.get("/plantilla-manual/:tipo", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
+  const { tipo } = req.params;
+
+  try {
+    const htmlContent = await obtenerPlantillaManual(empresaId, tipo);
+    return res.json(jsonResponse(200, { html: htmlContent }));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json(jsonResponse(500, { error: error.message || "Error al obtener la plantilla de manual" }));
+  }
+});
+
+// Oficializar el borrador de manual/política editado por el usuario
+router.post("/oficializar-manual", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
+  }
+  const { tipo, htmlContent } = req.body;
+
+  if (!tipo || !htmlContent) {
+    return res.status(400).json(jsonResponse(400, { error: "Faltan datos requeridos (tipo o htmlContent)" }));
+  }
+
+  try {
+    const { wizard } = await oficializarManual(empresaId, tipo, htmlContent, req.user.id);
+    
+    // Registrar auditoría con el req completo
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ASISTENTE_OFICIALIZAR_MANUAL',
+      detalles: { tipo },
+      req
+    });
+
+    return res.json(jsonResponse(200, { wizard }));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json(jsonResponse(500, { error: error.message || "Error al oficializar el manual" }));
+  }
+});
+
 module.exports = router;
+
