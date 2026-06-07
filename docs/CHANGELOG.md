@@ -8,6 +8,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 ## [Unreleased]
 
 ### Añadido
+- Endpoints y servicios de control de intervención de fondos acumulados (/api/intervencion-fondo), administrando el estado del checklist, contingencias registradas y generación inmutable de actas en formato PDF/A.
 - Nuevo esquema `FondoAcumulado` para documentar inventarios históricos de fondos acumulados preexistentes.
 - Procesamiento masivo de fondos acumulados (FUID) dual XLSX/CSV en `routes/fondosAcumulados.js` y `services/fondosAcumuladosService.js` con validación y reporte de errores por fila.
 - Endpoint de recomendación inteligente de series TRD/TVD según sector en `routes/archivistica.js` mapeando BANTER.
