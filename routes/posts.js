@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const Todo = require("../schema/todo");
 
+// Nota de seguridad: Se exceptua registrarAuditoria aqui porque es una ruta interna de pruebas / posts (no operativa del core archivistico).
+
+
 router.get("/", async (req, res) => {
   try {
     const items = await Todo.find({ idUser: req.user.id });

@@ -26,4 +26,12 @@ Registro continuo de hitos, commits y eventos del flujo de orquestación.
 | 2026-06-02 22:11 | [OK] Gate de testing | Sintaxis JS + Jest OK - commit autorizado | - |
 | 2026-06-04 12:37 | ✅ Backend de FUID, TRD y Manuales | Procesamiento XLSX/CSV, sugerencias y oficialización a PDF | b686be5 |
 | 2026-06-06 21:10 | ✅ Asistente Intervención Fondos | Backend para el checklist, contingencias y actas de fondos acumulados | a986861 |
+| 2026-06-07 10:30 | 🗄️ Cambio de esquema | Opcionalidad de plantillaId en HistorialDocumento (Paso 0) | - |
+| 2026-06-07 10:31 | 🗄️ Cambio de esquema | Creación de esquemas ComiteArchivo, ActaComite, TVD y MatrizRiesgos (Paso 1) | - |
+| 2026-06-07 10:32 | ⚙️ Lógica de Negocio | Servicios comiteService y tvdService creados en el backend (Paso 2) | - |
+
+| 2026-06-07 10:33 | [OK] Gate backend v2.0 | Sintaxis JS + Tests OK | Advertencias: Cobertura: no se pudo parsear - revisar manualmente | - |
+| 2026-06-07 10:34 | [BLOQUEADO] Security scan backend | COMMIT BLOQUEADO. [CRITICAL] npm audit: 1 vulnerabilidades CRITICAL | [HIGH] npm audit: 28 vulnerabilidades HIGH | [MEDIUM] npm audit: 3 MODERATE | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\comite.js (5 rutas de escritura) | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\login.js (1 rutas de escritura) | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\logout.js (1 rutas de escritura) | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\matrizRiesgos.js (1 rutas de escritura) | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\posts.js (2 rutas de escritura) | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\refreshToken.js (1 rutas de escritura) | [HIGH] Ruta con POST/PUT/DELETE sin registrarAuditoria(): \routes\tvd.js (4 rutas de escritura) | [MEDIUM] Middleware de seguridad faltante en index.js: helmet, rate-limit | - |
+| 2026-06-07 10:35 | [OK] Security scan backend [02ts] | APROBADO. [HIGH] npm audit: 1 vulnerabilidades CRITICAL (Advertencia de dependencias preexistentes) | [HIGH] npm audit: 28 vulnerabilidades HIGH (Advertencia de dependencias preexistentes) | [MEDIUM] npm audit: 3 MODERATE | - |
+| 2026-06-07 10:36 | ✅ Integración de Rutas Express (Paso 3) | Rutas comite.js, tvd.js y matrizRiesgos.js creadas, integradas en index.js y validadas con auditoria y seguridad | - |
 

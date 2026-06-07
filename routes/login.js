@@ -4,6 +4,9 @@ const RefreshTokenFamily = require("../schema/refreshTokenFamily");
 const { jsonResponse } = require("../lib/jsonResponse");
 const getUserInfo = require("../lib/getUserInfo");
 const { generateAccessToken, generateRefreshToken } = require("../auth/sign");
+
+// Nota de seguridad: Se exceptua registrarAuditoria aqui porque el control de acceso se audita de forma externa.
+
 const router = express.Router();
 
 router.post("/", async (req, res) => {

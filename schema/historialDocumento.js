@@ -4,7 +4,7 @@ const HistorialDocumentoSchema = new mongoose.Schema({
   plantillaId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Plantilla',
-    required: true,
+    required: false,
   },
   datosUsados: {
     type: Object,

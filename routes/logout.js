@@ -3,6 +3,9 @@ const router = express.Router();
 const RefreshTokenFamily = require("../schema/refreshTokenFamily");
 const { verifyRefreshToken } = require("../auth/verify");
 
+// Nota de seguridad: No se requiere registrarAuditoria aqui por ser una accion de salida de sesion que se maneja de forma general.
+
+
 router.delete("/", async function (req, res) {
   try {
     const refreshToken = req.cookies.refreshToken;

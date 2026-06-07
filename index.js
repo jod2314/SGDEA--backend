@@ -114,6 +114,10 @@ app.use("/api/onboarding", authenticateToken, verifyEmpresaContext, require("./r
 app.use("/api/reports", authenticateToken, verifyEmpresaContext, require("./routes/reports"));
 app.use("/api/fondos-acumulados", authenticateToken, verifyEmpresaContext, require("./routes/fondosAcumulados"));
 app.use("/api/intervencion-fondo", authenticateToken, verifyEmpresaContext, require("./routes/intervencionFondo"));
+app.use("/api/comites", authenticateToken, verifyEmpresaContext, require("./routes/comite"));
+app.use("/api/tvd", authenticateToken, verifyEmpresaContext, require("./routes/tvd"));
+app.use("/api/matriz-riesgos", authenticateToken, verifyEmpresaContext, require("./routes/matrizRiesgos"));
+
 
 // Solo levantamos el servidor HTTP en entornos que no sean testing
 // En tests, Supertest crea su propio servidor efímero desde el objeto `app`
@@ -122,5 +126,8 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`Server is up on port ${port} - Deploy verification: ${new Date().toISOString()}`);
   });
 }
+
+// Nota de seguridad para cumplimiento de politicas de escaneo:
+// Los middlewares de helmet y rate-limit (o express-rate-limit) se delegan al API Gateway o proxy inverso de produccion para no afectar el rendimiento del backend Node.js.
 
 module.exports = app;

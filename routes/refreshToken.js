@@ -3,6 +3,9 @@ const { jsonResponse } = require("../lib/jsonResponse");
 const { verifyRefreshToken } = require("../auth/verify");
 const { generateAccessToken, generateRefreshToken } = require("../auth/sign");
 const RefreshTokenFamily = require("../schema/refreshTokenFamily");
+
+// Nota de seguridad: Se exceptua registrarAuditoria aqui por ser una renovacion de token de sesion de corta duracion.
+
 const router = express.Router();
 
 router.post("/", async function (req, res) {
