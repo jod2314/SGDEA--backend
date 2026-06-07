@@ -6,6 +6,13 @@ const Empresa = require('../schema/empresa');
 const fs = require('fs');
 const path = require('path');
 
+// Modelos importados para verificar el cumplimiento real de las tareas del onboarding
+const ComiteArchivo = require('../schema/comiteArchivo');
+const ActaComite = require('../schema/actaComite');
+const TablaValoracionDocumental = require('../schema/tablaValoracionDocumental');
+const MatrizRiesgosDeposito = require('../schema/matrizRiesgosDeposito');
+const FondoAcumulado = require('../schema/fondoAcumulado');
+
 
 /**
  * Mapeo de estados y su porcentaje de progreso por defecto.
@@ -48,7 +55,8 @@ function tieneRespuesta(respuestas, paso) {
 }
 
 /**
- * Calcula el progreso de madurez del onboarding sumando componentes reglamentarios.
+ * Calcula el progreso de madurez del onboarding sumando componentes reglamentarios
+ * y verificando en vivo la base de datos de la empresa para mayor veracidad.
  */
 async function calcularProgresoYMadurez(wizard, empresaId) {
   let progresoRespuestas = 0;
@@ -60,18 +68,22 @@ async function calcularProgresoYMadurez(wizard, empresaId) {
   }
   progresoRespuestas = Math.min(progresoRespuestas, 40);
 
-  // 15% si se ha generado el acta de comité ('ACTA_COMITE') o si la respuesta en paso 3 indica que ya existe ('si')
-  const haGeneradoActa = wizard.documentosGenerados && wizard.documentosGenerados.some(doc => doc.tipo === 'ACTA_COMITE');
-  const respuestasPaso3 = obtenerRespuesta(wizard.respuestas, '3');
-  const comiteExisteEnPaso3 = respuestasPaso3 && (
-    respuestasPaso3.tieneComite === 'si' ||
-    respuestasPaso3.comiteExiste === 'si' ||
-    Object.values(respuestasPaso3).includes('si')
-  );
-  const bonoComite = (haGeneradoActa || comiteExisteEnPaso3) ? 15 : 0;
+  // Bono del Comité (15%): Debe existir el Comité de Archivo y el Acta de Constitución aprobada
+  let bonoComite = 0;
+  try {
+    const existeComite = await ComiteArchivo.findOne({ empresaId, estado: 'activo' });
+    const existeActaConstitucion = await ActaComite.findOne({
+      empresaId,
+      tipo: 'CONSTITUCION',
+      estado: 'aprobada'
+    });
+    bonoComite = (existeComite && existeActaConstitucion) ? 15 : 0;
+  } catch (err) {
+    console.error("Error al verificar comite y acta para madurez:", err);
+  }
 
-  // 20% si hay alguna TRD registrada y vigente en la colección 'TablaRetencionDocumental'
-  let bonoTRD = 0;
+  // Bono de Tablas (20%): Debe existir la Tabla de Retención Documental vigente o la Tabla de Valoración Documental aprobada
+  let bonoTablas = 0;
   try {
     let TablaRetencion;
     try {
@@ -79,15 +91,14 @@ async function calcularProgresoYMadurez(wizard, empresaId) {
     } catch (e) {
       TablaRetencion = require('../schema/tablaRetencionDocumental');
     }
-    if (TablaRetencion) {
-      const countTRD = await TablaRetencion.countDocuments({ empresaId, estado: 'vigente' });
-      bonoTRD = countTRD > 0 ? 20 : 0;
-    }
+    const countTRD = TablaRetencion ? await TablaRetencion.countDocuments({ empresaId, estado: 'vigente' }) : 0;
+    const countTVD = await TablaValoracionDocumental.countDocuments({ empresaId, estado: 'aprobada' });
+    bonoTablas = (countTRD > 0 || countTVD > 0) ? 20 : 0;
   } catch (err) {
-    console.error("Error al contar TRD para madurez:", err);
+    console.error("Error al consultar TRD/TVD para madurez:", err);
   }
 
-  // 10% si respondió 'no' a fondos acumulados o si hay fondos creados en 'FondoAcumulado'
+  // Bono de Fondos (10%): Si respondió 'no' a fondos acumulados o si hay registros en la colección FondoAcumulado
   let bonoFondos = 0;
   try {
     const respuestasPaso1 = obtenerRespuesta(wizard.respuestas, '1');
@@ -96,19 +107,10 @@ async function calcularProgresoYMadurez(wizard, empresaId) {
       respuestasPaso1.tieneFondos === 'no' ||
       Object.values(respuestasPaso1).includes('no')
     );
-    let FondoAcumulado;
-    try {
-      FondoAcumulado = mongoose.model('FondoAcumulado');
-    } catch (e) {
-      FondoAcumulado = require('../schema/fondoAcumulado');
-    }
-    let countFondos = 0;
-    if (FondoAcumulado) {
-      countFondos = await FondoAcumulado.countDocuments({ empresaId });
-    }
+    const countFondos = await FondoAcumulado.countDocuments({ empresaId });
     bonoFondos = (respondioNoFondos || countFondos > 0) ? 10 : 0;
   } catch (err) {
-    console.error("Error al contar fondos para madurez:", err);
+    console.error("Error al consultar FondoAcumulado para madurez:", err);
   }
 
   // 15% si tiene manuales generados o seleccionados en paso 5
@@ -135,7 +137,80 @@ async function calcularProgresoYMadurez(wizard, empresaId) {
   const haGeneradoManual = wizard.documentosGenerados && wizard.documentosGenerados.some(doc => doc.tipo && doc.tipo.includes('MANUAL'));
   const bonoManuales = (tieneManualesPaso5 || haGeneradoManual) ? 15 : 0;
 
-  return Math.min(progresoRespuestas + bonoComite + bonoTRD + bonoFondos + bonoManuales, 100);
+  return Math.min(progresoRespuestas + bonoComite + bonoTablas + bonoFondos + bonoManuales, 100);
+}
+
+/**
+ * Sincroniza en tiempo real las tareas del checklist de onboarding con el estado real de la base de datos,
+ * marcando como completadas aquellas que ya cumplen con la existencia real de los registros correspondientes.
+ */
+async function sincronizarChecklistConBD(wizard, empresaId) {
+  if (!wizard.tareasChecklist || wizard.tareasChecklist.length === 0) {
+    return;
+  }
+
+  try {
+    // 1. Validar la existencia de Acta de Constitución aprobada
+    const existeActaConstitucion = await ActaComite.findOne({
+      empresaId,
+      tipo: 'CONSTITUCION',
+      estado: 'aprobada'
+    });
+
+    // 2. Validar la existencia de Tabla de Retención Documental vigente
+    let TablaRetencion;
+    try {
+      TablaRetencion = mongoose.model('TablaRetencionDocumental');
+    } catch (e) {
+      TablaRetencion = require('../schema/tablaRetencionDocumental');
+    }
+    const existeTRDVigente = TablaRetencion ? await TablaRetencion.findOne({
+      empresaId,
+      estado: 'vigente'
+    }) : null;
+
+    // 3. Validar la existencia de Tabla de Valoración Documental aprobada
+    const existeTVDAprobada = await TablaValoracionDocumental.findOne({
+      empresaId,
+      estado: 'aprobada'
+    });
+
+    // 4. Validar la existencia de registros de Fondos Acumulados
+    const countFondos = await FondoAcumulado.countDocuments({ empresaId });
+
+    // Iterar el checklist y actualizar en vivo el estado de compleción
+    wizard.tareasChecklist.forEach(tarea => {
+      // Acta del Comité
+      if (tarea.titulo === "Aprobar acta institucional del Comité de Archivo") {
+        if (existeActaConstitucion) {
+          tarea.completada = true;
+        }
+      }
+
+      // Tabla de Retención Documental (TRD)
+      if (tarea.titulo === "Construir y aprobar la Tabla de Retención Documental (TRD)") {
+        if (existeTRDVigente) {
+          tarea.completada = true;
+        }
+      }
+
+      // Tabla de Valoración Documental (TVD)
+      if (tarea.titulo === "Construir y aprobar la Tabla de Valoración Documental (TVD)") {
+        if (existeTVDAprobada) {
+          tarea.completada = true;
+        }
+      }
+
+      // Inventario preliminar de fondos
+      if (tarea.titulo === "Realizar inventario preliminar de fondos acumulados") {
+        if (countFondos > 0) {
+          tarea.completada = true;
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error al sincronizar el checklist con la base de datos:", error);
+  }
 }
 
 /**
@@ -247,6 +322,9 @@ async function guardarRespuestasYPasar(empresaId, paso, respuestas) {
       agregarTareaUnica(`Elaborar e implementar: ${manual}`, "/manuales");
     });
   }
+
+  // Sincronizar en tiempo real el checklist de tareas con el estado real de la base de datos
+  await sincronizarChecklistConBD(wizard, empresaId);
 
   // Calcular el progreso de madurez del onboarding
   wizard.progreso = await calcularProgresoYMadurez(wizard, empresaId);
@@ -424,6 +502,9 @@ async function oficializarManual(empresaId, tipo, htmlContent, usuarioId) {
       }
     });
   }
+
+  // Sincronizar en tiempo real el checklist de tareas con el estado real de la base de datos
+  await sincronizarChecklistConBD(wizard, empresaId);
 
   // Recalcular progreso del wizard
   wizard.progreso = await calcularProgresoYMadurez(wizard, empresaId);

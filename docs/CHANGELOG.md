@@ -8,7 +8,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 ## [Unreleased]
 
 ### Añadido
+
+### [1.1.0] — 2026-06-07
+
+### Añadido
+- Modelos Mongoose para gobernanza y archivo: `comiteArchivo.js` (miembros, vigencia), `actaComite.js` (anexo referenciado, índice compuesto único `{ empresaId, numeroActa }`), `tablaValoracionDocumental.js` (índice único compuesto `{ empresaId, version }` e índice parcial único de aprobadas), `matrizRiesgosDeposito.js` (cálculo dinámico en pre-save de probabilidad * impacto).
+- Servicios de gobernanza y archivística: `comiteService.js` (oficialización de actas inmutables en PDF con sellos SHA-256) y `tvdService.js` (aprobación atómica en transacciones de TVDs y sincronización mediante upsert con `SerieDocumental`).
+- Rutas Express multi-tenant y con auditoría forense (`registrarAuditoria`): `/api/comites`, `/api/tvd` y `/api/matriz-riesgos`.
 - Endpoints y servicios de control de intervención de fondos acumulados (/api/intervencion-fondo), administrando el estado del checklist, contingencias registradas y generación inmutable de actas en formato PDF/A.
+
 - Nuevo esquema `FondoAcumulado` para documentar inventarios históricos de fondos acumulados preexistentes.
 - Procesamiento masivo de fondos acumulados (FUID) dual XLSX/CSV en `routes/fondosAcumulados.js` y `services/fondosAcumuladosService.js` con validación y reporte de errores por fila.
 - Endpoint de recomendación inteligente de series TRD/TVD según sector en `routes/archivistica.js` mapeando BANTER.

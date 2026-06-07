@@ -109,6 +109,7 @@ async function crearActaComite(empresaId, actaData, usuarioId, req) {
     temasTratados: actaData.temasTratados || [],
     desarrollo: actaData.desarrollo,
     compromisos: actaData.compromisos || [],
+    tipo: actaData.tipo || 'ORDINARIA',
     estado: 'borrador'
   });
 

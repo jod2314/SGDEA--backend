@@ -57,6 +57,11 @@ const ActaComiteSchema = new mongoose.Schema({
       trim: true,
     }
   },
+  tipo: {
+    type: String,
+    enum: ['CONSTITUCION', 'ORDINARIA', 'EXTRAORDINARIA'],
+    default: 'ORDINARIA',
+  },
   estado: {
     type: String,
     enum: ['borrador', 'aprobada', 'anulada'],
