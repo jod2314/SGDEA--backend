@@ -146,22 +146,31 @@ Cuando se ejecutan tareas complejas de backend, se activa la espiral de desarrol
     *   **Si falla (Iteración < 4):** Genera un `diagnostico_fallo.txt` detallado y reinicia el bucle inyectando el diagnóstico como contexto directo al Pensador.
     *   **Si falla (Iteración >= 4):** Detiene el bucle (PAUSA), resguarda los cambios en una rama temporal `fix/failed-attempt` y notifica al usuario con un resumen de los bloqueos.
 
+## 🛠️ Fortalecimiento, Auditoría y Asignación de Skills
+
+Las skills se gestionan, auditan y expanden de forma activa para dotar a los agentes de capacidades precisas sin desperdicio de contexto:
+
+### A. Auditoría de Skills al inicio del Loop (Fase 1 - Diseño)
+1.  **Análisis de Requisitos:** Una vez generado el blueprint técnico de la tarea (schemas, routes, services), el Coordinador realiza una auditoría obligatoria de las habilidades requeridas.
+2.  **Verificación de Suficiencia:** Compara las habilidades exigidas con las skills locales en `.agents/skills/` y las del sistema de AntiGravity.
+3.  **Mapeo y Asignación:** Si las skills existentes cubren los requerimientos, las inyecta como herramientas (Function Calling) en el runtime del agente según su rol.
+
+### B. Forjado de Skills Dinámicas (Skill Forge)
+Si la auditoría determina que las skills existentes **no son suficientes** para el hito:
+1.  **Investigación Web:** El Coordinador activa un subagente de investigación que busca en repositorios de GitHub, APIs, o documentación de NPM/Node.js de código abierto la lógica necesaria.
+2.  **Implementación Local:** Crea un subdirectorio en `.agents/skills/[nombre-skill]/` e implementa el script con un archivo `SKILL.md` estructurado que detalle:
+    *   `Input/Output` (Esquema JSON estricto).
+    *   `Scope de Archivos` (Frontera de seguridad en Mongoose, Express, etc.).
+3.  **Validación de la Skill:** Antes de su uso, el Validador Técnico comprueba que la skill corra sin errores en el entorno local sandbox.
+
+### C. Matriz de Asignación por Rol
+*   **🧠 Pensador:** `KnowledgeGraphQuery` (Relaciones globales), `SemanticValidator`.
+*   **🛠️ Técnico:** `KnowledgeGraphQuery` (Foco local), `RefactoringEngine`, `CodeReviewHelper`, más las skills técnicas forjadas específicas de la tarea.
+*   **🧪 Científico:** `MathCalculationEngine`, `DataStructureAnalyzer`, más algoritmos o scripts científicos forjados (ej. optimizadores de consultas, hashing).
+*   **🎨 Creativo:** `AuditorLogger`, `ReportTemplateGenerator`, más recursos visuales de PDF/XML.
+
 ---
 
-## 🛠️ Fortalecimiento y Asignación de Skills
-
-Las skills se gestionan dinámicamente según la macro-categoría del agente asignado para conservar tokens y precisión:
-1.  **Estructura Requerida (`SKILL.md`):** Todas las skills deben declarar explícitamente su formato de entrada/salida (JSON) y validar que los argumentos cumplan con los scopes de archivos permitidos.
-2.  **Uso Segmentado del Grafo de Conocimiento (`KnowledgeGraphQuery`):**
-    *   **Pensador / Coordinador:** Consultan dependencias arquitectónicas globales e impactos cruzados.
-    *   **Subagentes Ejecutores:** Consultan únicamente definiciones de API locales, variables e interfaces de su subárea para no inundar el contexto.
-3.  **Matriz de Asignación por Rol:**
-    *   **🧠 Pensador:** `KnowledgeGraphQuery` (Relaciones globales), `SemanticValidator`.
-    *   **🛠️ Técnico:** `KnowledgeGraphQuery` (Foco local), `RefactoringEngine`, `CodeReviewHelper`.
-    *   **🧪 Científico:** `MathCalculationEngine`, `DataStructureAnalyzer`.
-    *   **🎨 Creativo:** `CSSLayoutOptimizer`, `AnimationFidelityInspector`.
-
----
 
 ## 🧠 Base de Conocimiento Activa de Errores (docs/LECCIONES.md)
 
