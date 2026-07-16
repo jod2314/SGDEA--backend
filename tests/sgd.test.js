@@ -230,4 +230,52 @@ describe('Pruebas de Integración del Sistema de Gestión Documental (SGD) Polim
       expect(res.body.body.documentos[0].tipoDocumental).toBe('FONDOS_ACUMULADOS_CONTRATOS');
     });
   });
+
+  describe('Ciclo de Retención y Disposición Final (Sprint 3)', () => {
+    it('obtiene documentos listos para disposición final', async () => {
+      // 1. Registrar un documento cuya retención total haya expirado
+      // En este test, por defecto el documento precargado en beforeEach tiene gestionAnios = 0 y centralAnios = 20.
+      // Modificaremos la fecha de creación del documento precargado en la BD a 25 años atrás para que esté listo.
+      const doc = await Documento.findOne({ tipoDocumental: 'FONDOS_ACUMULADOS_CONTRATOS', empresaId });
+      doc.fechaCreacion = new Date(Date.now() - 25 * 365 * 24 * 60 * 60 * 1000); // 25 años atrás
+      await doc.save();
+
+      const res = await request(app)
+        .get('/api/sgd/listos-disposicion')
+        .set(headers);
+
+      expect(res.status).toBe(200);
+      expect(res.body.body.documentos.length).toBeGreaterThan(0);
+    });
+
+    it('procesa la eliminación masiva bajo un acta de eliminación', async () => {
+      const doc = await Documento.findOne({ tipoDocumental: 'FONDOS_ACUMULADOS_CONTRATOS', empresaId });
+      
+      const res = await request(app)
+        .post('/api/sgd/eliminar')
+        .set(headers)
+        .send({
+          documentosIds: [doc._id.toString()],
+          numeroActa: 'ACTA-2026-001'
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.body.cantidad).toBe(1);
+    });
+
+    it('exporta el inventario FUID oficial de los documentos seleccionados', async () => {
+      const doc = await Documento.findOne({ tipoDocumental: 'FONDOS_ACUMULADOS_CONTRATOS', empresaId });
+
+      const res = await request(app)
+        .post('/api/sgd/exportar-fuid')
+        .set(headers)
+        .send({
+          documentosIds: [doc._id.toString()]
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.body.fuid.length).toBe(1);
+      expect(res.body.body.fuid[0].codigo).toBe(doc.codigoClasificacion);
+    });
+  });
 });

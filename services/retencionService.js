@@ -68,8 +68,49 @@ async function generarDatosFUID(expedientesIds) {
   }));
 }
 
+const Documento = require('../schema/documento');
+
+/**
+ * Identifica documentos individuales en el SGD listos para disposición final.
+ * Criterio: fechaCreacion + gestionAnios + centralAnios es menor o igual a hoy.
+ */
+async function obtenerDocumentosListosDisposicion(empresaId) {
+  const hoy = moment();
+  const documentos = await Documento.find({ empresaId });
+
+  return documentos.filter(doc => {
+    const retencionTotal = (doc.vigencia?.gestionAnios || 0) + (doc.vigencia?.centralAnios || 0);
+    const fechaCumplimiento = moment(doc.fechaCreacion).add(retencionTotal, 'years');
+    return hoy.isSameOrAfter(fechaCumplimiento);
+  });
+}
+
+/**
+ * Genera el FUID oficial para un grupo de documentos polimórficos individuales.
+ */
+async function generarFUIDDocumentos(documentosIds) {
+  const documentos = await Documento.find({ _id: { $in: documentosIds } });
+
+  return documentos.map((doc, index) => ({
+    numeroOrden: index + 1,
+    codigo: doc.codigoClasificacion,
+    nombreSerieSubserie: doc.tipoDocumental,
+    fechasExtremas: {
+      inicial: doc.fechaCreacion,
+      final: doc.fechaCierre || doc.createdAt
+    },
+    unidadConservacion: doc.soporte === 'ELECTRONICO' ? 'Archivo Electrónico' : 'Carpeta Física',
+    numeroFolios: doc.metadatosExtendidos?.get('numeroFolios') || 1,
+    soporte: doc.soporte,
+    frecuenciaConsulta: 'Baja',
+    notas: `Estado: ${doc.metadatosExtendidos?.get('estadoConservacion') || 'BUENO'}. Hash: ${doc.hashIntegridad.substring(0, 8)}...`
+  }));
+}
+
 module.exports = {
   obtenerListosTransferenciaPrimaria,
   obtenerListosTransferenciaSecundaria,
-  generarDatosFUID
+  generarDatosFUID,
+  obtenerDocumentosListosDisposicion,
+  generarFUIDDocumentos
 };

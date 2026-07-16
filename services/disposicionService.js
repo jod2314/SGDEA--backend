@@ -55,7 +55,28 @@ async function procesarEliminacionMasiva(empresaId, expedientesIds, actaId) {
   return expedientes.length;
 }
 
+const Documento = require('../schema/documento');
+
+/**
+ * Procesa la eliminación de un set de documentos individuales en el SGD.
+ */
+async function procesarEliminacionDocumentos(empresaId, documentosIds, actaId) {
+  const result = await Documento.updateMany(
+    { _id: { $in: documentosIds }, empresaId },
+    {
+      $set: {
+        soporte: 'FISICO', // se marca físico para denotar destrucción o retiro de digital
+        codigoClasificacion: 'ELIMINADO',
+        'metadatosExtendidos.observacionEliminacion': `Eliminado bajo Acta ID: ${actaId}`
+      }
+    }
+  );
+
+  return result.modifiedCount;
+}
+
 module.exports = {
   obtenerListosDisposicionFinal,
-  procesarEliminacionMasiva
+  procesarEliminacionMasiva,
+  procesarEliminacionDocumentos
 };

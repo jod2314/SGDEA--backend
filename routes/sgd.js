@@ -188,4 +188,62 @@ router.get('/documentos/:id', async (req, res) => {
   }
 });
 
+const { obtenerDocumentosListosDisposicion, generarFUIDDocumentos } = require('../services/retencionService');
+const { procesarEliminacionDocumentos } = require('../services/disposicionService');
+
+// 6. Obtener documentos listos para disposición final
+router.get('/listos-disposicion', async (req, res) => {
+  const empresaId = req.empresaContext.id;
+  try {
+    const documentos = await obtenerDocumentosListosDisposicion(empresaId);
+    res.json(jsonResponse(200, { documentos }));
+  } catch (error) {
+    console.error('ERROR AL OBTENER LISTOS DISPOSICION:', error);
+    res.status(500).json(jsonResponse(500, { error: 'Error al procesar el ciclo de retención' }));
+  }
+});
+
+// 7. Ejecutar eliminación de documentos del SGD
+router.post('/eliminar', async (req, res) => {
+  const empresaId = req.empresaContext.id;
+  const { documentosIds, numeroActa } = req.body;
+
+  try {
+    if (!documentosIds || !Array.isArray(documentosIds) || documentosIds.length === 0 || !numeroActa) {
+      return res.status(400).json(jsonResponse(400, { error: 'Documentos seleccionados y número de acta obligatorios' }));
+    }
+
+    const cantidadModificada = await procesarEliminacionDocumentos(empresaId, documentosIds, numeroActa);
+
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ELIMINAR_DOCUMENTOS_SGD',
+      detalles: { cantidad: cantidadModificada, numeroActa }
+    });
+
+    res.json(jsonResponse(200, { message: 'Documentos eliminados lógicamente y registrados en acta', cantidad: cantidadModificada }));
+  } catch (error) {
+    console.error('ERROR AL ELIMINAR DOCUMENTOS:', error);
+    res.status(500).json(jsonResponse(500, { error: 'Error al procesar la eliminación' }));
+  }
+});
+
+// 8. Exportar FUID de los documentos
+router.post('/exportar-fuid', async (req, res) => {
+  const { documentosIds } = req.body;
+
+  try {
+    if (!documentosIds || !Array.isArray(documentosIds) || documentosIds.length === 0) {
+      return res.status(400).json(jsonResponse(400, { error: 'Se requiere una lista de IDs de documentos para generar el FUID' }));
+    }
+
+    const fuidData = await generarFUIDDocumentos(documentosIds);
+    res.json(jsonResponse(200, { fuid: fuidData }));
+  } catch (error) {
+    console.error('ERROR AL GENERAR FUID:', error);
+    res.status(500).json(jsonResponse(500, { error: 'Error al generar el formato FUID' }));
+  }
+});
+
 module.exports = router;
