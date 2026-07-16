@@ -60,6 +60,11 @@ const TablaValoracionDocumentalSchema = new mongoose.Schema({
       type: String,
       required: true,
       trim: true,
+    },
+    dependenciaId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Dependencia',
+      default: null,
     }
   }],
   usuarioCreadorId: {

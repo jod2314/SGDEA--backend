@@ -121,4 +121,67 @@ router.post('/generar-acta', async (req, res) => {
   }
 });
 
+const Dependencia = require('../schema/dependencia');
+
+// Registrar dependencias históricas del organigrama (Tarea 3.1)
+router.post('/registrar-jerarquia', async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) {
+    return res.status(400).json(jsonResponse(400, { error: 'Falta el contexto de Empresa (X-Empresa-ID)' }));
+  }
+
+  const { codigoDependencia, nombreDependencia, dependenciaPadreId } = req.body;
+  if (!codigoDependencia || !nombreDependencia) {
+    return res.status(400).json(jsonResponse(400, { error: 'Código y Nombre de dependencia obligatorios' }));
+  }
+
+  try {
+    // 1. Crear o actualizar la dependencia oficial en la base de datos
+    let dependencia = await Dependencia.findOne({ empresaId, codigoDependencia });
+    if (!dependencia) {
+      dependencia = new Dependencia({
+        empresaId,
+        codigoDependencia,
+        nombreDependencia,
+        dependenciaPadreId: dependenciaPadreId || null,
+        estado: 'activo'
+      });
+      await dependencia.save();
+    } else {
+      dependencia.nombreDependencia = nombreDependencia;
+      dependencia.dependenciaPadreId = dependenciaPadreId || null;
+      await dependencia.save();
+    }
+
+    // 2. Marcar automáticamente la tarea 3.1 como completada
+    const wizard = await actualizarTareaChecklist(empresaId, '3.1', true);
+
+    // 3. Registrar contingencia para persistir los IDs históricos en el asistente
+    let dependenciasCreadas = [];
+    const contingencias = wizard.contingencias;
+    if (contingencias && contingencias.get('apendice_3_1')) {
+      const actual = contingencias.get('apendice_3_1');
+      dependenciasCreadas = Array.isArray(actual) ? actual : [];
+    }
+    if (!dependenciasCreadas.includes(dependencia._id.toString())) {
+      dependenciasCreadas.push(dependencia._id.toString());
+    }
+    await registrarContingencia(empresaId, 'apendice_3_1', dependenciasCreadas);
+
+    // 4. Registrar auditoría forense
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'INTERVENCION_CREAR_JERARQUIA_HISTORICA',
+      detalles: { dependenciaId: dependencia._id, codigoDependencia, nombreDependencia },
+      req
+    });
+
+    return res.json(jsonResponse(200, { message: 'Dependencia histórica registrada y asociada a la intervención', dependencia, wizard }));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json(jsonResponse(500, { error: error.message || 'Error al registrar la jerarquía del acumulado' }));
+  }
+});
+
 module.exports = router;

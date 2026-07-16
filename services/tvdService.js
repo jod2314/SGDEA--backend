@@ -189,6 +189,7 @@ async function aprobarTVD(tvdId, empresaId, actaAprobacionId, usuarioId, req) {
 async function obtenerTVDs(empresaId) {
   return await TablaValoracionDocumental.find({ empresaId })
     .populate('actaAprobacionId', 'numeroActa fechaReunion')
+    .populate('series.dependenciaId')
     .sort({ createdAt: -1 });
 }
 
@@ -200,7 +201,8 @@ async function obtenerTVDs(empresaId) {
 async function obtenerTVDPorId(tvdId, empresaId) {
   return await TablaValoracionDocumental.findOne({ _id: tvdId, empresaId })
     .populate('actaAprobacionId')
-    .populate('usuarioCreadorId', 'nombre email');
+    .populate('usuarioCreadorId', 'nombre email')
+    .populate('series.dependenciaId');
 }
 
 /**

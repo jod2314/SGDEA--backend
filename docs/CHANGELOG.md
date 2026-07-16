@@ -5,9 +5,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [1.3.0] — 2026-07-16
 
 ### Añadido
+- **Ecosistema SGD Polimórfico (Prototipo Fundacional):** Implementación de una arquitectura de datos extendida y polimórfica que permite definir nuevos tipos documentales dinámicamente.
+- **Modelos y Validación Mongoose:** Esquemas `TipoDocumental` y `Documento` con metadatos extendidos implementados como mapas `Map` y validados en caliente con `Ajv` contra un JSON Schema en el backend.
+- **Renderizado Dinámico de Formularios:** Componente React `FormularioDinamico` que lee el JSON Schema del tipo documental seleccionado y pinta de forma reactiva los campos específicos correspondientes (selects, números, fechas, textos) manejando validaciones y estados de error.
+- **Panel de Control SGD Premium:** Vista dedicada en el frontend (`routes/Sgd.tsx`) para la radicación de documentos, consulta con filtros archivísticos avanzados, visualización de metadatos polimórficos expandibles, y configuración en caliente de nuevos tipos documentales (Test del Salto).
+- **Ciclo Vital de Documentos:** Endpoints en el backend para la consulta de vigencia acumulada de retención de documentos individuales (`obtenerDocumentosListosDisposicion`) y procesamiento masivo de eliminación lógica bajo actas autorizadas.
+- **Exportación FUID:** Endpoint y servicio para generar el Formato Único de Inventario Documental (FUID) reglamentario de documentos polimórficos.
 
 ## [1.2.0] — 2026-07-15
 

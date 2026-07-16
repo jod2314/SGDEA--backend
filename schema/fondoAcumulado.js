@@ -16,9 +16,19 @@ const FondoAcumuladoSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  seccionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Dependencia',
+    default: null,
+  },
   subseccion: {
     type: String,
     trim: true,
+  },
+  subseccionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Dependencia',
+    default: null,
   },
   asunto: {
     type: String,

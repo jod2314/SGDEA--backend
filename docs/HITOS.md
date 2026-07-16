@@ -45,3 +45,7 @@ Registro continuo de hitos, commits y eventos del flujo de orquestación.
 | 2026-07-15 20:46 | [FALLO] Gate backend v2.0 | Gate fallido - commit bloqueado. Ejecutar rollback.ps1 | - |
 | 2026-07-15 20:51 | [OK] Gate backend v2.0 | Sintaxis JS + Tests OK | Advertencias: Cobertura: no se pudo parsear - revisar manualmente | - |
 | 2026-07-15 20:56 | [OK] Gate backend v2.0 | Sintaxis JS + Tests OK | Advertencias: Cobertura: no se pudo parsear - revisar manualmente | - |
+| 2026-07-16 01:52 | ✅ Sprint 1: Backend & Modelado Polimórfico | Implementación del modelo Documento y TipoDocumental, validationService y rutas Express para SGD | 8e0ec05 |
+| 2026-07-16 01:55 | ✅ Sprint 2: Frontend & Renderizado Dinámico | Integración de FormularioDinamico basado en JSON Schema, rutas del Drawer y vista Sgd.tsx | b05d1ab |
+| 2026-07-16 01:57 | ✅ Sprint 3: Retención & Disposición Final | Implementación de ciclo de retención, eliminación de documentos y exportación FUID en el API | 565afc8 |
+| 2026-07-15 23:49 | [OK] Gate backend v2.0 | Sintaxis JS + Tests OK | Advertencias: Cobertura: no se pudo parsear - revisar manualmente | - |
