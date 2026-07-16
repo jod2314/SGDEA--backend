@@ -37,3 +37,4 @@ Registro continuo de hitos, commits y eventos del flujo de orquestación.
 | 2026-06-07 10:36 | ✅ Integración de Rutas Express (Paso 3) | Rutas comite.js, tvd.js y matrizRiesgos.js creadas, integradas en index.js y validadas con auditoria y seguridad | 35b9db2 |
 
 
+| 2026-07-15 20:12 | [OK] Gate backend v2.0 | Sintaxis JS + Tests OK | Advertencias: Cobertura: no se pudo parsear - revisar manualmente | - |

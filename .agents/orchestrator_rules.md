@@ -120,23 +120,57 @@ tipo(scope): descripción concisa [hash-sec]
 
 ---
 
-## 📋 Criterios de Aceptación General
+## 📋 Criterios de Aceptación General (Validador de Triple Capa)
 
-Un paso se considera completado cuando:
-- El servidor arranca sin errores (`node index.js`)
-- Los endpoints responden correctamente
-- La auditoría se registra correctamente en MongoDB
-- El Security Agent aprobó el diff
-- Los cambios están en `docs/HITOS.md`
+Un paso o hito se considera completamente aprobado y listo para commit únicamente tras superar el **Validador de Triple Capa (Loop Controller)**:
+1.  **Capa Técnica:**
+    *   El servidor arranca sin errores de sintaxis (`node index.js`).
+    *   Los endpoints responden correctamente en pruebas de integración.
+    *   La auditoría obligatoria se registra correctamente en MongoDB.
+    *   El Security Agent aprueba el diff (sin secretos ni vulnerabilidades OWASP).
+2.  **Capa Semántica (KnowledgeGraph):**
+    *   Se verifica que las modificaciones no colisionen con los flujos lógicos existentes mediante `KnowledgeGraphQuery`.
+    *   Se comprueba la coherencia de la lógica y los comentarios en español respecto al blueprint del Pensador.
+3.  **Capa de Integración:**
+    *   La lógica y los schemas modificados por subagentes especialistas encajan perfectamente con las rutas y servicios existentes.
 
 ---
 
-## 📋 Memoria del Orquestador (5 capas)
+## 🔁 El Bucle de Desarrollo Recursivo (Loop System)
+
+Cuando se ejecutan tareas complejas de backend, se activa la espiral de desarrollo recursivo:
+1.  **El Pensador (Thinker):** Define el blueprint técnico de servicios/schemas, criterios de aceptación y realiza el mapeo de dependencias mediante `KnowledgeGraphQuery`.
+2.  **El Coordinador (Coordinator):** Distribuye subtareas y auto-crea agentes si el perfil no existe, inyectando las skills necesarias bajo demanda.
+3.  **El Validador (Loop Controller):** Evalúa el Gate de Triple Capa.
+    *   **Si pasa:** Transmite el éxito al Pensador para que realice el Acta de Cierre, realice el commit/push y finalice el bucle.
+    *   **Si falla (Iteración < 4):** Genera un `diagnostico_fallo.txt` detallado y reinicia el bucle inyectando el diagnóstico como contexto directo al Pensador.
+    *   **Si falla (Iteración >= 4):** Detiene el bucle (PAUSA), resguarda los cambios en una rama temporal `fix/failed-attempt` y notifica al usuario con un resumen de los bloqueos.
+
+---
+
+## 🛠️ Fortalecimiento y Asignación de Skills
+
+Las skills se gestionan dinámicamente según la macro-categoría del agente asignado para conservar tokens y precisión:
+1.  **Estructura Requerida (`SKILL.md`):** Todas las skills deben declarar explícitamente su formato de entrada/salida (JSON) y validar que los argumentos cumplan con los scopes de archivos permitidos.
+2.  **Uso Segmentado del Grafo de Conocimiento (`KnowledgeGraphQuery`):**
+    *   **Pensador / Coordinador:** Consultan dependencias arquitectónicas globales e impactos cruzados.
+    *   **Subagentes Ejecutores:** Consultan únicamente definiciones de API locales, variables e interfaces de su subárea para no inundar el contexto.
+3.  **Matriz de Asignación por Rol:**
+    *   **🧠 Pensador:** `KnowledgeGraphQuery` (Relaciones globales), `SemanticValidator`.
+    *   **🛠️ Técnico:** `KnowledgeGraphQuery` (Foco local), `RefactoringEngine`, `CodeReviewHelper`.
+    *   **🧪 Científico:** `MathCalculationEngine`, `DataStructureAnalyzer`.
+    *   **🎨 Creativo:** `CSSLayoutOptimizer`, `AnimationFidelityInspector`.
+
+---
+
+## 📋 Memoria del Orquestador (6 capas)
 
 | Capa | Archivo | Cuándo se carga |
 |:-----|:--------|:----------------|
 | Inmediata | `PROXIMA_TAREA.md` | Cada tarea activa |
+| De Estado | `loop_state.json` | Persistencia del loop activo (intentos, diagnósticos, rama) |
 | Episódica | `docs/HITOS.md` | Al revisar progreso |
 | Lecciones | `docs/LECCIONES.md` | Cuando algo falla o se descubre un patrón |
 | Redundancias | `docs/REDUNDANCIAS.md` | Al detectar duplicaciones |
 | Permanente | `GEMINI.md` (raíz `C:\web`) | Siempre activa (ligera) |
+

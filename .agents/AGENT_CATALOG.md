@@ -96,9 +96,24 @@ Si la respuesta a cualquier pregunta es "sí", debe justificar por qué igualmen
 
 ---
 
+## 📋 Sistema de Auto-Creación Dinámica de Agentes (Agent Forge)
+
+Si el Coordinador determina que no hay un agente permanente o temporal adecuado en el backend para resolver la tarea en curso, iniciará la auto-creación dinámica utilizando el siguiente protocolo:
+1.  **Investigación de Perfil:** Se ejecuta una búsqueda web o consulta en el Grafo de Conocimiento sobre los mejores patrones de diseño y librerías para la funcionalidad del backend.
+2.  **Clasificación por Categoría:** El nuevo agente se clasifica en una de las 4 categorías:
+    *   `🧠 Pensador`: Orientado al modelado de datos, diseño de APIs REST y definición de contratos de integración.
+    *   `🛠️ Técnico`: Especializado en escritura de código limpio, schemas de Mongoose, middlewares de Express y pruebas unitarias.
+    *   `🧪 Científico`: Diseñado para la optimización de queries, índices complejos, algoritmos de cálculo contable y criptografía.
+    *   `🎨 Creativo`: En el backend, enfocado en el formato de logs de auditoría legibles y reportes estructurados (PDF/A, XML, CSV).
+3.  **Asignación de Skills Exclusiva:** El Coordinador adjunta al agente únicamente el conjunto de skills atómicas correspondientes a su rol (p. ej., `MathCalculationEngine` al Científico, o `RefactoringEngine` al Técnico) para optimizar el contexto.
+4.  **Registro Temporal:** Se añade el perfil a la tabla de agentes con el prefijo `[Forge]` y estado `🔄 Temporal`. Al finalizar la tarea y pasar el Gate, el perfil se archiva para auditoría.
+
+---
+
 ## 📋 Instrucciones para actualizar este catálogo
 
-Solo el orquestador puede actualizar este archivo. Para añadir un agente especialista temporal:
-1. Definirlo con `define_subagent` usando el system_prompt del archivo de prompts correspondiente
-2. Añadir una fila a la tabla con estado `🔄 Temporal`
-3. Cuando ya no se necesite, marcarlo `❌ Archivado`
+Solo el orquestador puede actualizar este archivo. Para añadir un agente especialista temporal o forjado:
+1. Definirlo con `define_subagent` usando el system_prompt del archivo de prompts correspondiente o auto-generado por el Coordinador.
+2. Añadir una fila a la tabla con estado `🔄 Temporal` o `🛠️ Forjado`
+3. Cuando el loop finalice con éxito, marcarlo como `❌ Archivado`.
+
