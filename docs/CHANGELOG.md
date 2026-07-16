@@ -5,6 +5,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.4.0] — 2026-07-16
+
+### Añadido
+- **Integración de Jerarquías en Fondos Acumulados (Sprint 5):** Unificación del diagnóstico físico de acumulados con el organigrama corporativo y las Tablas de Valoración Documental (TVD).
+- **Endpoint de Jerarquía Histórica:** Creación de `/api/intervencion-fondo/registrar-jerarquia` para crear dependencias oficiales en la base de datos a partir de la investigación en la Tarea 3.1 del asistente.
+- **Relación de Dependencias en TVD y FUID:** Modificación de los esquemas `TablaValoracionDocumental` y `FondoAcumulado` para almacenar referencias de `Dependencia` en las series y en el inventario.
+- **Formulario Interactivo del Organigrama:** Formulario interactivo en la Tarea 3.1 de `FondosAcumulados.tsx` para listar y registrar dependencias del organigrama histórico en caliente.
+- **Selector de Dependencias en TVD:** Selector dinámico en `FormularioTVD.tsx` que permite asociar series documentales a dependencias específicas del sistema.
+
 ## [1.3.0] — 2026-07-16
 
 ### Añadido
