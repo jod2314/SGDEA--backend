@@ -24,3 +24,22 @@ Este documento resume los cambios, esquemas, servicios y rutas de API implementa
    - `/api/tvd`: CRUD y aprobación transaccional de TVD.
    - `/api/matriz-riesgos`: Registro de riesgos físicos/ambientales.
    - Registrados y protegidos con `authenticateToken` y `verifyEmpresaContext` en `index.js`, obligando a registrar auditoría forense (`registrarAuditoria`).
+
+---
+
+## 📍 Optimización de Orquestación: Loops, Skills y Grafo de Conocimiento (15 de Julio de 2026)
+
+### ⚙️ Cambios e Infraestructura Backend
+
+1.  **Reglas de Orquestación Recursivas (`.agents/orchestrator_rules.md`):**
+    *   Implementación del **Bucle de Desarrollo Recursivo (Loop System)** con reentradas controladas al Pensador y un límite de 4 iteraciones para autodiagnósticos de fallos.
+    *   Definición del **Validador de Triple Capa** (Capa Técnica, Capa Semántica con `KnowledgeGraphQuery` y Capa de Integración).
+    *   Establecimiento de directrices para el uso segmentado del Grafo de Conocimiento (el Pensador y Coordinador usan dependencias globales; los subagentes técnicos realizan consultas hiper-locales para evitar token flood).
+    
+2.  **Estructura Dinámica en Catálogo de Agentes (`.agents/AGENT_CATALOG.md`):**
+    *   Definición del protocolo **Agent Forge** de creación dinámica de agentes temporales, clasificados bajo 4 perfiles macro: Pensador, Técnico, Científico y Creativo.
+    *   Asignación de skills atómicas exclusivas por rol y validación de scopes en schemas y controllers del backend.
+
+### 🧪 Verificación y Compilación
+*   Pipeline de pruebas del backend (verificación sintáctica, pruebas Jest + cobertura y Smoke test en index.js) superado con éxito con un 76% de cobertura de pruebas.
+*   Hito registrado y subido a GitHub con el hash final `fe3ee93`.
