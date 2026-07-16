@@ -163,6 +163,16 @@ Las skills se gestionan dinámicamente según la macro-categoría del agente asi
 
 ---
 
+## 🧠 Base de Conocimiento Activa de Errores (docs/LECCIONES.md)
+
+Para prevenir la repetición de fallas históricas y acelerar la resolución de problemas conocidos, el sistema utiliza `docs/LECCIONES.md` como una **Base de Conocimientos Activa**:
+1.  **Consulta Preventiva (Fase 1 - Diseño):** Al recibir la tarea, el Pensador escanea `docs/LECCIONES.md` para identificar lecciones aprendidas anteriores vinculadas a los archivos, controladores, servicios o bases de datos que se van a modificar.
+2.  **Inyección de Restricciones (Fase 2 - Ejecución):** Si se detecta una lección histórica relevante, el Coordinador debe inyectar una regla de prevención en el prompt de sistema del subagente especialista (ej. *"REGLA PREVENTIVA HISTÓRICA: Validar que toda escritura invoque registrarAuditoria() pasando req según lección del 2026-06-07"*).
+3.  **Resolución de Errores Automatizada (Fase 3 - Validación):** Si el Validador de Triple Capa reporta un fallo, contrastará el error técnico con la base de lecciones. Si hay coincidencia, el `diagnostico_fallo.txt` adjuntará la solución preestablecida para resolverlo inmediatamente.
+4.  **Registro Obligatorio (Fase 4 - Cierre):** Todo fallo superado en el bucle que no estuviera previamente registrado debe documentarse en `docs/LECCIONES.md` siguiendo el formato estándar antes de proceder al commit final.
+
+---
+
 ## 📋 Memoria del Orquestador (6 capas)
 
 | Capa | Archivo | Cuándo se carga |
@@ -170,7 +180,8 @@ Las skills se gestionan dinámicamente según la macro-categoría del agente asi
 | Inmediata | `PROXIMA_TAREA.md` | Cada tarea activa |
 | De Estado | `loop_state.json` | Persistencia del loop activo (intentos, diagnósticos, rama) |
 | Episódica | `docs/HITOS.md` | Al revisar progreso |
-| Lecciones | `docs/LECCIONES.md` | Cuando algo falla o se descubre un patrón |
+| Lecciones | `docs/LECCIONES.md` | Base de conocimientos activa de errores y aprendizaje |
 | Redundancias | `docs/REDUNDANCIAS.md` | Al detectar duplicaciones |
 | Permanente | `GEMINI.md` (raíz `C:\web`) | Siempre activa (ligera) |
+
 
