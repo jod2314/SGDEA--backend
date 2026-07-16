@@ -117,6 +117,8 @@ app.use("/api/intervencion-fondo", authenticateToken, verifyEmpresaContext, requ
 app.use("/api/comites", authenticateToken, verifyEmpresaContext, require("./routes/comite"));
 app.use("/api/tvd", authenticateToken, verifyEmpresaContext, require("./routes/tvd"));
 app.use("/api/matriz-riesgos", authenticateToken, verifyEmpresaContext, require("./routes/matrizRiesgos"));
+app.use("/api/sgd", authenticateToken, verifyEmpresaContext, require("./routes/sgd"));
+
 
 
 // Solo levantamos el servidor HTTP en entornos que no sean testing
