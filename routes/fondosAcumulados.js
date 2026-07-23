@@ -1,11 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const FondoAcumulado = require("../schema/fondoAcumulado");
+const DiagnosticoDIA = require("../schema/diagnosticoDIA");
+const CEOF = require("../schema/ceof");
+const { FVD, TVDConsolidada } = require("../schema/tvd");
+const InventarioFUID = require("../schema/inventarioFUID");
 const { jsonResponse } = require("../lib/jsonResponse");
 const { registrarAuditoria } = require("../lib/audit");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
 const { procesarFuidMasivo, exportarFuidCsv } = require("../services/fondosAcumuladosService");
+const { calcularInsumosProyecto, calcularMuestraDIA } = require("../services/fdaCalculosService");
 
 // Listar todos los fondos acumulados de la empresa
 router.get("/", async (req, res) => {
@@ -18,6 +23,75 @@ router.get("/", async (req, res) => {
     res.json(jsonResponse(200, { fondos }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error al obtener los fondos acumulados" }));
+  }
+});
+
+// Endpoint para cálculo de proyección de Insumos & Bioseguridad (Tapabocas N95 / Nitrilo)
+router.post("/calculo-insumos", (req, res) => {
+  const { metrosLineales, diasEstimados, auxiliares } = req.body;
+  const resultado = calcularInsumosProyecto(metrosLineales, diasEstimados, auxiliares);
+  res.json(jsonResponse(200, { insumos: resultado }));
+});
+
+// Endpoint para cálculo muestral estadístico DIA (Ficha H-12)
+router.post("/calculo-muestra-dia", (req, res) => {
+  const { totalCarpetasPoblacion, margenError, nivelConfianzaZ } = req.body;
+  const resultado = calcularMuestraDIA(totalCarpetasPoblacion, margenError, nivelConfianzaZ);
+  res.json(jsonResponse(200, { muestraDIA: resultado }));
+});
+
+// Obtener o crear Diagnóstico DIA de la empresa
+router.get("/diagnostico-dia", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  try {
+    let dia = await DiagnosticoDIA.findOne({ empresaId });
+    if (!dia) {
+      dia = new DiagnosticoDIA({ empresaId });
+      await dia.save();
+    }
+    res.json(jsonResponse(200, { diagnostico: dia }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al obtener el Diagnóstico DIA" }));
+  }
+});
+
+// Actualizar Diagnóstico DIA
+router.put("/diagnostico-dia", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  try {
+    const dia = await DiagnosticoDIA.findOneAndUpdate(
+      { empresaId },
+      { $set: req.body },
+      { new: true, upsert: true }
+    );
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_DIAGNOSTICO_DIA',
+      detalles: { estado: dia.estado },
+      req
+    });
+    res.json(jsonResponse(200, { diagnostico: dia }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al actualizar Diagnóstico DIA" }));
+  }
+});
+
+// Obtener o crear CEOF
+router.get("/ceof", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  try {
+    let ceof = await CEOF.findOne({ empresaId });
+    if (!ceof) {
+      ceof = new CEOF({ empresaId });
+      await ceof.save();
+    }
+    res.json(jsonResponse(200, { ceof }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al obtener el CEOF" }));
   }
 });
 
@@ -98,54 +172,42 @@ router.get("/exportar-fuid", async (req, res) => {
     const csvContent = await exportarFuidCsv(empresaId);
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", "attachment; filename=FUID_Historico_Fondos_Acumulados.csv");
+    res.setHeader("Content-Disposition", `attachment; filename=FUID_Fondos_Acumulados_${Date.now()}.csv`);
     res.status(200).send(csvContent);
   } catch (error) {
-    res.status(500).json(jsonResponse(500, { error: "Error al exportar FUID" }));
+    res.status(500).json(jsonResponse(500, { error: "Error al exportar el inventario FUID" }));
   }
 });
 
-
-// Importar masivamente fondos acumulados (XLSX, XLS, CSV)
-router.post("/importar-masivo", upload.single("archivo"), async (req, res) => {
+// Importar masivamente vía CSV
+router.post("/importar-masivo", upload.single("file"), async (req, res) => {
   const empresaId = req.empresaContext && req.empresaContext.id;
   if (!empresaId) {
     return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa (X-Empresa-ID)" }));
   }
-
   if (!req.file) {
     return res.status(400).json(jsonResponse(400, { error: "No se ha subido ningún archivo" }));
   }
 
   try {
-    const resultado = await procesarFuidMasivo(req.file.buffer, empresaId);
+    const resultado = await procesarFuidMasivo(empresaId, req.file.buffer);
 
-    // Registrar auditoría con el total importado
     await registrarAuditoria({
       empresaId,
       usuarioId: req.user.id,
-      accion: "IMPORTAR_MASIVO_FUID",
-      detalles: { 
-        totalProcesados: resultado.totalProcesados, 
-        totalGuardados: resultado.totalGuardados, 
-        totalErrores: resultado.errores.length 
-      },
+      accion: 'IMPORTAR_FUID_MASIVO',
+      detalles: { procesados: resultado.procesados, erroresCount: resultado.errores.length },
       req
     });
 
     res.status(200).json(jsonResponse(200, {
-      message: `Carga masiva finalizada. Guardados: ${resultado.totalGuardados}, Errores/Advertencias: ${resultado.errores.length}`,
-      totalProcesados: resultado.totalProcesados,
-      totalGuardados: resultado.totalGuardados,
+      message: "Procesamiento masivo finalizado",
+      procesados: resultado.procesados,
       errores: resultado.errores
     }));
-
   } catch (error) {
-    console.error("Error en carga masiva de FUID:", error);
-    res.status(500).json(jsonResponse(500, { error: error.message || "Error interno al procesar el archivo masivo" }));
+    res.status(500).json(jsonResponse(500, { error: "Error en la importación masiva: " + error.message }));
   }
 });
 
 module.exports = router;
-
-
