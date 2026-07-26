@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const tvdService = require('../services/tvdService');
 const { jsonResponse } = require('../lib/jsonResponse');
+const { validarDDHHObligaCT, registrarRadicadoAGN, registrarConvalidacion, registrarRUSD, calcularAlertasRUSD } = require('../services/tvdConvalidacionService');
 
 // Nota de seguridad: Se invoca registrarAuditoria de forma interna en tvdService para todas las escrituras.
 
@@ -19,6 +20,20 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error al obtener las TVDs:', error);
     return res.status(500).json(jsonResponse(500, { error: 'Error al obtener las Tablas de Valoración Documental (TVD).' }));
+  }
+});
+
+/**
+ * @route GET /api/tvd/alertas-rusd
+ * @desc Retorna TVDs convalidadas hace > 30 días hábiles sin código RUSD.
+ */
+router.get('/alertas-rusd', async (req, res) => {
+  try {
+    const alertas = await calcularAlertasRUSD(req.empresaContext.id);
+    return res.json(jsonResponse(200, { alertas, total: alertas.length }));
+  } catch (error) {
+    console.error('Error al calcular alertas RUSD:', error);
+    return res.status(500).json(jsonResponse(500, { error: error.message }));
   }
 });
 
@@ -75,6 +90,17 @@ router.put('/:tvdId', async (req, res) => {
   const { version, nombre, descripcion, series, estado } = req.body;
 
   try {
+    // Validación normativa DDHH (Ley 594/2000, Art. 57)
+    if (series && series.length > 0) {
+      const violaciones = validarDDHHObligaCT(series);
+      if (violaciones.length > 0) {
+        return res.status(422).json(jsonResponse(422, {
+          error: 'Violación normativa DDHH — Ley 594/2000, Art. 57',
+          violaciones
+        }));
+      }
+    }
+
     const tvd = await tvdService.actualizarTVD(tvdId, empresaId, { version, nombre, descripcion, series, estado }, usuarioId, req);
     return res.json(jsonResponse(200, { tvd }));
   } catch (error) {
@@ -121,6 +147,48 @@ router.delete('/:tvdId', async (req, res) => {
   } catch (error) {
     console.error('Error al eliminar la TVD:', error);
     return res.status(500).json(jsonResponse(500, { error: error.message || 'Error al eliminar la Tabla de Valoración Documental (TVD).' }));
+  }
+});
+
+/**
+ * @route PUT /api/tvd/:tvdId/radicar-agn
+ * @desc Registra el radicado de la TVD ante el AGN (Acuerdo 004/2019).
+ */
+router.put('/:tvdId/radicar-agn', async (req, res) => {
+  try {
+    const tvd = await registrarRadicadoAGN(req.params.tvdId, req.empresaContext.id, req.body, req.user.id, req);
+    return res.json(jsonResponse(200, { message: 'Radicado AGN registrado exitosamente.', tvd }));
+  } catch (error) {
+    console.error('Error al radicar TVD ante AGN:', error);
+    return res.status(500).json(jsonResponse(500, { error: error.message }));
+  }
+});
+
+/**
+ * @route PUT /api/tvd/:tvdId/convalidar
+ * @desc Registra la convalidación emitida por el AGN o Consejo Territorial.
+ */
+router.put('/:tvdId/convalidar', async (req, res) => {
+  try {
+    const tvd = await registrarConvalidacion(req.params.tvdId, req.empresaContext.id, req.body, req.user.id, req);
+    return res.json(jsonResponse(200, { message: 'Convalidación registrada exitosamente.', tvd }));
+  } catch (error) {
+    console.error('Error al registrar convalidación:', error);
+    return res.status(500).json(jsonResponse(500, { error: error.message }));
+  }
+});
+
+/**
+ * @route PUT /api/tvd/:tvdId/registrar-rusd
+ * @desc Registra el código RUSD (plazo: 30 días hábiles desde convalidación).
+ */
+router.put('/:tvdId/registrar-rusd', async (req, res) => {
+  try {
+    const tvd = await registrarRUSD(req.params.tvdId, req.empresaContext.id, req.body, req.user.id, req);
+    return res.json(jsonResponse(200, { message: 'Registro RUSD exitoso.', tvd }));
+  } catch (error) {
+    console.error('Error al registrar RUSD:', error);
+    return res.status(500).json(jsonResponse(500, { error: error.message }));
   }
 });
 

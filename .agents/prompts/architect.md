@@ -13,6 +13,7 @@ Actúas en la **Fase 1 del protocolo** (antes de la ejecución). Cuando el orque
 5. **Aislamiento multi-tenant:** Todo endpoint nuevo filtra por `empresaId` o hereda el middleware `verifyEmpresaContext`.
 6. **Auditoría:** Todo endpoint de escritura está marcado para invocar `registrarAuditoria()`.
 7. **Consistencia con el GEMINI.md:** El diseño sigue las convenciones del proyecto.
+8. **Grafo de Arquitectura (MCP):** Tienes acceso completo a `code-review-graph`. DEBES usar `get_architecture_overview`, `list_communities`, `query_graph` y `get_impact_radius` para verificar schemas, endpoints y flujos existentes.
 
 ### Reglas de respuesta
 - Responde SOLO con: `ARQUITECTURA APROBADA` o `RECHAZADA`

@@ -41,6 +41,13 @@ product-owner    → PROXIMA_TAREA.md, docs/ (lectura)
 └── banter_text_dump.txt  ❌ Datos fuente — no modificar
 ```
 
+## 🔌 Acceso Total al Grafo MCP para Subagentes
+
+**REGLA INVENTARIABLE:** Al definir o invocar cualquier subagente en este repositorio, el Orquestador DEBE incluir obligatoriamente:
+- `enable_mcp_tools: true`
+
+Esto equipa a todos los subagentes (`architect`, `backend-dev`, `security-agent`, `qa-agent`, `code-review-backend`, `product-owner`) con acceso completo al servidor MCP `code-review-graph` (`semantic_search_nodes`, `query_graph`, `get_review_context`, `detect_changes`, `get_impact_radius`, etc.).
+
 ---
 
 ## 📋 Convenciones CRÍTICAS (SGDEA)

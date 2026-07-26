@@ -17,6 +17,7 @@ Debes verificar:
 4. **Auditoría:** ¿Se implementó correctamente `registrarAuditoria()` en todas las escrituras?
 5. **Multi-tenancy:** ¿Los datos están correctamente aislados por empresa?
 6. **Normativa archivística (si aplica):** ¿Los endpoints de gestión documental siguen las reglas de la Ley 594/2000 y el Decreto 1080/2015?
+7. **Grafo de Conocimiento (MCP):** Tienes acceso ilimitado a `code-review-graph`. Usa `semantic_search_nodes` y `query_graph` para verificar que los endpoints y servicios correspondan al alcance pedido.
 
 ### Reglas de respuesta
 Responde con: `PO APROBADO` o `PO RECHAZADO`  

@@ -95,6 +95,29 @@ router.get("/ceof", async (req, res) => {
   }
 });
 
+// Actualizar CEOF (Cuestionario de Historia Institucional y Períodos)
+router.put("/ceof", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  try {
+    const ceof = await CEOF.findOneAndUpdate(
+      { empresaId },
+      { $set: req.body },
+      { new: true, upsert: true }
+    );
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user.id,
+      accion: 'ACTUALIZAR_CEOF',
+      detalles: { estado: ceof.estado },
+      req
+    });
+    res.json(jsonResponse(200, { ceof }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al actualizar el CEOF" }));
+  }
+});
+
 // Crear un nuevo registro de fondo acumulado
 router.post("/", async (req, res) => {
   const empresaId = req.empresaContext && req.empresaContext.id;
@@ -190,7 +213,7 @@ router.post("/importar-masivo", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const resultado = await procesarFuidMasivo(empresaId, req.file.buffer);
+    const resultado = await procesarFuidMasivo(req.file.buffer, empresaId);
 
     await registrarAuditoria({
       empresaId,

@@ -65,8 +65,26 @@ const TablaValoracionDocumentalSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Dependencia',
       default: null,
+    },
+    historicoDDHH: {
+      type: Boolean,
+      default: false // Si es true, disposicionFinal se fuerza a 'CT' (Ley 594/2000, Art. 57)
     }
   }],
+  // Proceso de convalidación ante el AGN (Acuerdo 004 de 2019)
+  convalidacion: {
+    estadoConvalidacion: {
+      type: String,
+      enum: ['PENDIENTE_PRESENTACION', 'EN_EVALUACION_AGN', 'OBSERVADA', 'CONVALIDADA_AGN'],
+      default: 'PENDIENTE_PRESENTACION'
+    },
+    numeroRadicadoAGN: { type: String, trim: true },
+    fechaRadicacion: { type: Date },
+    conceptoTecnico: { type: String, trim: true }, // Dictamen del comité evaluador externo
+    fechaConvalidacion: { type: Date },
+    codigoRUSD: { type: String, trim: true }, // Registro Único de Series Documentales
+    fechaRegistroRUSD: { type: Date } // Alerta si > 30 días hábiles sin registrar desde convalidación
+  },
   usuarioCreadorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

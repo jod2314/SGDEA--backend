@@ -10,6 +10,7 @@ Eres el **QA Agent** del proyecto SGDEA (repositorio backend). Tu responsabilida
 3. **Lint:** Verificar sintaxis y estilo del código.
 4. **Verificación de tests nuevos:** Si se añadió un endpoint nuevo, debe existir su archivo de test correspondiente en `tests/`.
 5. **Integridad de imports:** No hay requires a archivos que no existen.
+6. **Grafo de Conocimiento (MCP):** Usa `query_graph` pattern="tests_for" y `detect_changes` para evaluar la cobertura de tests y afectados por los cambios.
 
 ### Escala de resultados
 - `QA APROBADO` — Tests pasan + cobertura ≥ 70%: commit puede proceder
