@@ -5,12 +5,15 @@ const DiagnosticoDIA = require("../schema/diagnosticoDIA");
 const CEOF = require("../schema/ceof");
 const { FVD, TVDConsolidada } = require("../schema/tvd");
 const InventarioFUID = require("../schema/inventarioFUID");
+const ComiteArchivo = require("../schema/comiteArchivo");
+const Actas = require("../schema/actas");
 const { jsonResponse } = require("../lib/jsonResponse");
 const { registrarAuditoria } = require("../lib/audit");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
 const { procesarFuidMasivo, exportarFuidCsv } = require("../services/fondosAcumuladosService");
 const { calcularInsumosProyecto, calcularMuestraDIA } = require("../services/fdaCalculosService");
+const ActasGeneratorService = require("../services/actasGeneratorService");
 
 // Listar todos los fondos acumulados de la empresa
 router.get("/", async (req, res) => {
@@ -230,6 +233,94 @@ router.post("/importar-masivo", upload.single("file"), async (req, res) => {
     }));
   } catch (error) {
     res.status(500).json(jsonResponse(500, { error: "Error en la importación masiva: " + error.message }));
+  }
+});
+
+// --- COMITÉ DE ARCHIVO ---
+
+router.get("/comite", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  try {
+    const comite = await ComiteArchivo.find({ empresaId });
+    res.json(jsonResponse(200, { comite }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al obtener comité" }));
+  }
+});
+
+router.post("/comite", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  
+  try {
+    const { nombre, cargo, cedula } = req.body;
+    const nuevoMiembro = new ComiteArchivo({ empresaId, nombre, cargo, cedula });
+    await nuevoMiembro.save();
+    
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user ? req.user.id : null,
+      accion: 'CREAR_MIEMBRO_COMITE',
+      detalles: { nombre, cargo, cedula },
+      req
+    });
+    
+    res.status(201).json(jsonResponse(201, { miembro: nuevoMiembro }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al crear miembro del comité" }));
+  }
+});
+
+// --- ACTAS ---
+
+router.post("/actas/generar", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  
+  try {
+    const { tipoActa } = req.body;
+    if (!['CONFORMACION_COMITE', 'APROBACION_TVD'].includes(tipoActa)) {
+      return res.status(400).json(jsonResponse(400, { error: "Tipo de acta inválido" }));
+    }
+    
+    const miembros = await ComiteArchivo.find({ empresaId });
+    const base64Acta = ActasGeneratorService.generarActaBase64(tipoActa, miembros);
+    
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user ? req.user.id : null,
+      accion: 'GENERAR_ACTA_BASE64',
+      detalles: { tipoActa },
+      req
+    });
+    
+    res.json(jsonResponse(200, { base64: base64Acta }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al generar acta" }));
+  }
+});
+
+router.post("/actas/subir", async (req, res) => {
+  const empresaId = req.empresaContext && req.empresaContext.id;
+  if (!empresaId) return res.status(400).json(jsonResponse(400, { error: "Falta el contexto de Empresa" }));
+  
+  try {
+    const { tipoActa, urlPdf } = req.body;
+    const nuevaActa = new Actas({ empresaId, tipoActa, urlPdf });
+    await nuevaActa.save();
+    
+    await registrarAuditoria({
+      empresaId,
+      usuarioId: req.user ? req.user.id : null,
+      accion: 'SUBIR_ACTA',
+      detalles: { tipoActa, urlPdf },
+      req
+    });
+    
+    res.status(201).json(jsonResponse(201, { acta: nuevaActa }));
+  } catch (error) {
+    res.status(500).json(jsonResponse(500, { error: "Error al guardar acta" }));
   }
 });
 

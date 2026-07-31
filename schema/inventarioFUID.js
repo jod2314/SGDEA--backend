@@ -44,9 +44,13 @@ const InventarioFUIDSchema = new mongoose.Schema({
   },
   ubicacionTopografica: {
     deposito: { type: String, default: 'Depósito 1' },
+    modulo: { type: String },
     estante: { type: String, required: true },
-    entrenpanio: { type: String, required: true }
+    entrepano: { type: String, required: true },
+    caja: { type: String },
+    carpeta: { type: String }
   },
+  archivoDigital: { type: String },
   codigoQRData: { type: String },
   // Operaciones físicas realizadas
   operacionesRealizadas: {
