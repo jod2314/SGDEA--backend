@@ -50,12 +50,21 @@ const DiagnosticoDIASchema = new mongoose.Schema({
     porcentajeDeterioroBiologico: { type: Number, default: 0 },
     porcentajeDeformacionFisica: { type: Number, default: 0 }
   },
-  // Bloque 4: Lecturas Ambientales (H-14)
+  // Bloque 4: Lecturas Ambientales (H-14) y Riesgos Locativos
   lecturasAmbientales: {
     temperaturaPromedio: { type: Number, default: 0 },
     humedadRelativaPromedio: { type: Number, default: 0 },
     iluminacionLuxes: { type: Number, default: 0 },
-    presenciaPlagasActivas: { type: Boolean, default: false }
+    presenciaPlagasActivas: { type: Boolean, default: false },
+    goteras: { type: Boolean, default: false },
+    hongos: { type: Boolean, default: false },
+    saturacion: { type: Boolean, default: false }
+  },
+  // Bloque Informativo: Checklist de Alistamiento (Químicos, Herramientas, Locación)
+  alistamientoInformativo: {
+    mesaTrabajo: { type: Boolean, default: false },
+    quimicosPermitidos: { type: Boolean, default: false },
+    herramientasLimpieza: { type: Boolean, default: false }
   },
   // Matriz DOFA
   dofa: {

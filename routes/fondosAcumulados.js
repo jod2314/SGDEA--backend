@@ -31,9 +31,14 @@ router.get("/", async (req, res) => {
 
 // Endpoint para cálculo de proyección de Insumos & Bioseguridad (Tapabocas N95 / Nitrilo)
 router.post("/calculo-insumos", (req, res) => {
-  const { metrosLineales, diasEstimados, auxiliares } = req.body;
-  const resultado = calcularInsumosProyecto(metrosLineales, diasEstimados, auxiliares);
-  res.json(jsonResponse(200, { insumos: resultado }));
+  try {
+    const { metrosLineales, diasEstimados, auxiliares } = req.body;
+    const resultado = calcularInsumosProyecto(metrosLineales, diasEstimados, auxiliares);
+    res.json(jsonResponse(200, { insumos: resultado }));
+  } catch (error) {
+    console.error("Error calculando insumos:", error);
+    res.status(500).json(jsonResponse(500, { error: "Error en el servidor al calcular insumos" }));
+  }
 });
 
 // Endpoint para cálculo muestral estadístico DIA (Ficha H-12)
