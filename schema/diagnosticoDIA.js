@@ -66,6 +66,25 @@ const DiagnosticoDIASchema = new mongoose.Schema({
     quimicosPermitidos: { type: Boolean, default: false },
     herramientasLimpieza: { type: Boolean, default: false }
   },
+  // Proyección de Insumos (Calculadora)
+  proyeccionInsumos: {
+    metrosLineales: { type: Number },
+    diasEstimados: { type: Number },
+    auxiliares: { type: Number },
+    cajasX200: { type: Number },
+    carpetas: { type: Number },
+    ganchosLegajadores: { type: Number },
+    resmasPapel: { type: Number },
+    lapicesHB: { type: Number },
+    bisturis: { type: Number },
+    cintaFalla: { type: Number },
+    batasTyvek: { type: Number },
+    tapabocasN95: { type: Number },
+    guantesNitrilo: { type: Number },
+    alcohol70: { type: Number },
+    gelAntibacterial: { type: Number },
+    cajasCartonCorrugado: { type: Number }
+  },
   // Matriz DOFA
   dofa: {
     debilidades: [String],

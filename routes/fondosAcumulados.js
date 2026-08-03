@@ -30,10 +30,20 @@ router.get("/", async (req, res) => {
 });
 
 // Endpoint para cálculo de proyección de Insumos & Bioseguridad (Tapabocas N95 / Nitrilo)
-router.post("/calculo-insumos", (req, res) => {
+router.post("/calculo-insumos", async (req, res) => {
   try {
+    const empresaId = req.empresaContext && req.empresaContext.id;
     const { metrosLineales, diasEstimados, auxiliares } = req.body;
     const resultado = calcularInsumosProyecto(metrosLineales, diasEstimados, auxiliares);
+    
+    if (empresaId) {
+      await DiagnosticoDIA.findOneAndUpdate(
+        { empresaId },
+        { $set: { proyeccionInsumos: { metrosLineales, diasEstimados, auxiliares, ...resultado } } },
+        { new: true, upsert: true }
+      );
+    }
+    
     res.json(jsonResponse(200, { insumos: resultado }));
   } catch (error) {
     console.error("Error calculando insumos:", error);
